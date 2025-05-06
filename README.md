@@ -1,15 +1,43 @@
-## Prerequisites
+## Project Structure
 
-- Python 3.8 or higher
-- Node.js 14 or higher
-- npm or yarn
+```
+school-management/
+├── backend/
+│   ├── models.py          # Database models
+│   ├── app.py            # Main application
+│   └── routes/           # API routes
+│       ├── auth.py       # Authentication routes
+│       ├── users.py      # User management
+│       ├── notifications.py
+│       ├── messages.py
+│       ├── forms.py
+│       ├── evaluations.py
+│       └── rewards.py
+├── frontend/
+│   ├── index.html        # Main HTML file
+│   ├── css/
+│   │   └── style.css     # Custom styles
+│   └── js/
+│       ├── api.js        # API service
+│       └── app.js        # Main application logic
+├── requirements.txt      # Python dependencies
+└── README.md            # Project documentation
+```
 
-## Backend Setup
+## Setup Instructions
 
-1. Create a virtual environment:
+### 1. Backend Setup
+
+1. Create and activate virtual environment:
 ```bash
+# Windows
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\venv\Scripts\Activate.ps1
+
+# Linux/Mac
+python3 -m venv venv
+source venv/bin/activate
 ```
 
 2. Install dependencies:
@@ -17,24 +45,77 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-3. Set up environment variables:
-Create a `.env` file in the backend directory with:
-```
-JWT_SECRET_KEY=your-secret-key-here
-FLASK_APP=app.py
-FLASK_ENV=development
+3. Initialize the database:
+```bash
+# Windows
+cd backend
+$env:FLASK_APP = "app:create_app"
+$env:FLASK_ENV = "development"
+flask init-db
+
+
+# Linux/Mac
+export FLASK_APP=backend/app.py
+flask init-db
 ```
 
-4. Initialize the database:
+4. Run the backend server:
 ```bash
-flask db init
-flask db migrate
-flask db upgrade
-```
+# Windows
+$env:FLASK_APP = "app:create_app"
+$env:FLASK_ENV = "development"
+flask run
 
-5. Run the backend server:
-```bash
+# Linux/Mac
+export FLASK_APP=backend/app.py
+export FLASK_ENV=development
 flask run
 ```
 
-The backend server will run on `http://localhost:5000`
+The backend server will run at `http://localhost:5000`
+
+### 2. Frontend Setup
+
+1. Open the frontend folder:
+```bash
+cd frontend
+```
+
+2. Serve the frontend files using a local server. You can use Python's built-in server:
+```bash
+# Python 3
+python -m http.server 8000
+
+3. Open your browser and navigate to:
+```
+http://localhost:8000
+```
+
+## Demo Accounts
+
+The system comes with pre-configured demo accounts for testing:
+
+1. School Admin:
+   - Username: admin
+   - Password: admin123
+   - Role: school
+
+2. Department:
+   - Username: department
+   - Password: dept123
+   - Role: department
+
+3. Teacher:
+   - Username: teacher
+   - Password: teacher123
+   - Role: teacher
+
+4. Parent:
+   - Username: parent
+   - Password: parent123
+   - Role: parent
+
+5. Student:
+   - Username: student
+   - Password: student123
+   - Role: student

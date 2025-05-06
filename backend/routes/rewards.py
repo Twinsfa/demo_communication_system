@@ -1,193 +1,209 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import Reward, User, Class
+from models import RewardAndDiscipline, User, Student, Department, UserRole, Role
 from app import db
 from datetime import datetime
 
 rewards_bp = Blueprint('rewards', __name__)
 
-def is_school_or_teacher():
+def get_user_roles(user_id):
+    user_roles = UserRole.query.filter_by(user_id=user_id).all()
+    role_ids = [ur.role_id for ur in user_roles]
+    return Role.query.filter(Role.id.in_(role_ids)).all()
+
+@rewards_bp.route('/', methods=['POST'])
+@jwt_required()
+def create_reward_discipline():
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    return user and user.role in ['school', 'teacher']
+    data = request.get_json()
+    
+    # Check if user is department
+    roles = get_user_roles(user_id)
+    if not any(role.name == 'department' for role in roles):
+        return jsonify({'message': 'Only departments can create rewards/discipline records'}), 403
+    
+    # Validate required fields
+    if not all(k in data for k in ['type', 'content', 'date', 'student_id']):
+        return jsonify({'message': 'Missing required fields'}), 400
+    
+    # Validate type
+    if data['type'] not in ['reward', 'discipline']:
+        return jsonify({'message': 'Invalid type'}), 400
+    
+    # Validate student exists
+    student = Student.query.get(data['student_id'])
+    if not student:
+        return jsonify({'message': 'Student not found'}), 404
+    
+    # Get department
+    department = Department.query.filter_by(user_id=user_id).first()
+    if not department:
+        return jsonify({'message': 'Department profile not found'}), 404
+    
+    # Create record
+    record = RewardAndDiscipline(
+        type=data['type'],
+        content=data['content'],
+        date=datetime.strptime(data['date'], '%Y-%m-%d').date(),
+        student_id=student.id,
+        department_id=department.id
+    )
+    
+    db.session.add(record)
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'message': 'Record created successfully',
+            'record_id': record.id
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error creating record'}), 500
 
 @rewards_bp.route('/', methods=['GET'])
 @jwt_required()
-def get_rewards():
+def get_rewards_discipline():
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    
-    # Get query parameters
-    student_id = request.args.get('student_id')
-    reward_type = request.args.get('type')
-    category = request.args.get('category')
-    class_id = request.args.get('class_id')
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    roles = get_user_roles(user_id)
     
     # Base query
-    query = Reward.query
+    query = RewardAndDiscipline.query
     
     # Filter based on user role
-    if user.role == 'student':
-        query = query.filter_by(student_id=user_id)
-    elif user.role == 'parent':
-        # Parents can see rewards of their children
-        query = query.join(User, Reward.student_id == User.id).filter(User.parent_id == user_id)
-    elif user.role == 'teacher':
-        # Teachers can see rewards of their students
-        query = query.join(User, Reward.student_id == User.id).filter(User.class_id == user.class_id)
-    elif user.role == 'school':
-        # School can see all rewards
+    if any(role.name == 'student' for role in roles):
+        # Students can only see their own records
+        student = Student.query.filter_by(user_id=user_id).first()
+        if student:
+            query = query.filter_by(student_id=student.id)
+    elif any(role.name == 'parent' for role in roles):
+        # Parents can see records of their children
+        parent = User.query.get(user_id).parent
+        if parent:
+            student_ids = [student.id for student in parent.students]
+            query = query.filter(RewardAndDiscipline.student_id.in_(student_ids))
+    elif any(role.name == 'department' for role in roles):
+        # Departments can see all records
         pass
     else:
         return jsonify({'message': 'Unauthorized'}), 403
     
-    # Apply additional filters
-    if student_id:
-        query = query.filter_by(student_id=student_id)
-    if reward_type:
-        query = query.filter_by(type=reward_type)
-    if category:
-        query = query.filter_by(category=category)
-    if class_id:
-        query = query.join(User, Reward.student_id == User.id).filter(User.class_id == class_id)
-    if start_date:
-        query = query.filter(Reward.date >= datetime.fromisoformat(start_date))
-    if end_date:
-        query = query.filter(Reward.date <= datetime.fromisoformat(end_date))
-    
-    rewards = query.order_by(Reward.date.desc()).all()
-    
-    return jsonify([{
-        'id': reward.id,
-        'student_id': reward.student_id,
-        'student_name': User.query.get(reward.student_id).full_name,
-        'type': reward.type,
-        'description': reward.description,
-        'date': reward.date.isoformat(),
-        'teacher_id': reward.teacher_id,
-        'teacher_name': User.query.get(reward.teacher_id).full_name,
-        'points': reward.points,
-        'category': reward.category
-    } for reward in rewards]), 200
-
-@rewards_bp.route('/', methods=['POST'])
-@jwt_required()
-def create_reward():
-    if not is_school_or_teacher():
-        return jsonify({'message': 'Unauthorized'}), 403
-    
-    data = request.get_json()
-    user_id = get_jwt_identity()
-    
-    # Validate student exists
-    student = User.query.get(data['student_id'])
-    if not student or student.role != 'student':
-        return jsonify({'message': 'Invalid student'}), 400
-    
-    reward = Reward(
-        student_id=data['student_id'],
-        type=data['type'],
-        description=data['description'],
-        date=datetime.fromisoformat(data['date']),
-        teacher_id=user_id,
-        points=data.get('points'),
-        category=data.get('category')
-    )
-    
-    db.session.add(reward)
-    db.session.commit()
-    
-    return jsonify({
-        'id': reward.id,
-        'student_id': reward.student_id,
-        'type': reward.type,
-        'description': reward.description,
-        'date': reward.date.isoformat(),
-        'teacher_id': reward.teacher_id,
-        'points': reward.points,
-        'category': reward.category
-    }), 201
-
-@rewards_bp.route('/<int:reward_id>', methods=['PUT'])
-@jwt_required()
-def update_reward(reward_id):
-    if not is_school_or_teacher():
-        return jsonify({'message': 'Unauthorized'}), 403
-    
-    reward = Reward.query.get(reward_id)
-    if not reward:
-        return jsonify({'message': 'Reward not found'}), 404
-    
-    data = request.get_json()
-    
-    if 'description' in data:
-        reward.description = data['description']
-    if 'points' in data:
-        reward.points = data['points']
-    if 'category' in data:
-        reward.category = data['category']
-    
-    db.session.commit()
-    
-    return jsonify({
-        'id': reward.id,
-        'student_id': reward.student_id,
-        'type': reward.type,
-        'description': reward.description,
-        'date': reward.date.isoformat(),
-        'teacher_id': reward.teacher_id,
-        'points': reward.points,
-        'category': reward.category
-    }), 200
-
-@rewards_bp.route('/statistics', methods=['GET'])
-@jwt_required()
-def get_reward_statistics():
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    
-    if user.role not in ['school', 'teacher']:
-        return jsonify({'message': 'Unauthorized'}), 403
-    
-    class_id = request.args.get('class_id')
-    reward_type = request.args.get('type')
-    category = request.args.get('category')
+    # Apply filters
+    record_type = request.args.get('type')
+    student_id = request.args.get('student_id')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     
-    # Base query
-    query = Reward.query
-    
-    # Apply filters
-    if class_id:
-        query = query.join(User, Reward.student_id == User.id).filter(User.class_id == class_id)
-    if reward_type:
-        query = query.filter_by(type=reward_type)
-    if category:
-        query = query.filter_by(category=category)
+    if record_type:
+        query = query.filter_by(type=record_type)
+    if student_id:
+        query = query.filter_by(student_id=student_id)
     if start_date:
-        query = query.filter(Reward.date >= datetime.fromisoformat(start_date))
+        query = query.filter(RewardAndDiscipline.date >= datetime.strptime(start_date, '%Y-%m-%d').date())
     if end_date:
-        query = query.filter(Reward.date <= datetime.fromisoformat(end_date))
+        query = query.filter(RewardAndDiscipline.date <= datetime.strptime(end_date, '%Y-%m-%d').date())
     
-    rewards = query.all()
+    records = query.order_by(RewardAndDiscipline.date.desc()).all()
     
-    # Calculate statistics
-    total_rewards = len(rewards)
-    total_points = sum(reward.points or 0 for reward in rewards)
-    by_type = {}
-    by_category = {}
+    return jsonify([{
+        'id': record.id,
+        'type': record.type,
+        'content': record.content,
+        'date': record.date.isoformat(),
+        'student': {
+            'id': record.student.id,
+            'full_name': record.student.full_name
+        },
+        'department': {
+            'id': record.department.id,
+            'name': record.department.name
+        }
+    } for record in records]), 200
+
+@rewards_bp.route('/<int:record_id>', methods=['GET'])
+@jwt_required()
+def get_record(record_id):
+    user_id = get_jwt_identity()
+    roles = get_user_roles(user_id)
     
-    for reward in rewards:
-        by_type[reward.type] = by_type.get(reward.type, 0) + 1
-        if reward.category:
-            by_category[reward.category] = by_category.get(reward.category, 0) + 1
+    record = RewardAndDiscipline.query.get(record_id)
+    if not record:
+        return jsonify({'message': 'Record not found'}), 404
+    
+    # Check permissions
+    if any(role.name == 'student' for role in roles):
+        student = Student.query.filter_by(user_id=user_id).first()
+        if not student or record.student_id != student.id:
+            return jsonify({'message': 'Unauthorized'}), 403
+    elif any(role.name == 'parent' for role in roles):
+        parent = User.query.get(user_id).parent
+        if not parent or record.student_id not in [student.id for student in parent.students]:
+            return jsonify({'message': 'Unauthorized'}), 403
+    elif not any(role.name == 'department' for role in roles):
+        return jsonify({'message': 'Unauthorized'}), 403
     
     return jsonify({
-        'total_rewards': total_rewards,
-        'total_points': total_points,
-        'by_type': by_type,
-        'by_category': by_category
-    }), 200 
+        'id': record.id,
+        'type': record.type,
+        'content': record.content,
+        'date': record.date.isoformat(),
+        'student': {
+            'id': record.student.id,
+            'full_name': record.student.full_name
+        },
+        'department': {
+            'id': record.department.id,
+            'name': record.department.name
+        }
+    }), 200
+
+@rewards_bp.route('/<int:record_id>', methods=['PUT'])
+@jwt_required()
+def update_record(record_id):
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    # Check if user is department
+    roles = get_user_roles(user_id)
+    if not any(role.name == 'department' for role in roles):
+        return jsonify({'message': 'Only departments can update records'}), 403
+    
+    record = RewardAndDiscipline.query.get(record_id)
+    if not record:
+        return jsonify({'message': 'Record not found'}), 404
+    
+    # Update fields
+    if 'content' in data:
+        record.content = data['content']
+    if 'date' in data:
+        record.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Record updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error updating record'}), 500
+
+@rewards_bp.route('/<int:record_id>', methods=['DELETE'])
+@jwt_required()
+def delete_record(record_id):
+    user_id = get_jwt_identity()
+    
+    # Check if user is department
+    roles = get_user_roles(user_id)
+    if not any(role.name == 'department' for role in roles):
+        return jsonify({'message': 'Only departments can delete records'}), 403
+    
+    record = RewardAndDiscipline.query.get(record_id)
+    if not record:
+        return jsonify({'message': 'Record not found'}), 404
+    
+    db.session.delete(record)
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Record deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error deleting record'}), 500 

@@ -31,20 +31,27 @@ def create_app():
     from routes.auth import auth_bp
     from routes.users import users_bp
     from routes.messages import messages_bp
-    from routes.announcements import announcements_bp
+    from routes.notifications import notifications_bp
     from routes.forms import forms_bp
-    from routes.grades import grades_bp
+    from routes.evaluations import evaluations_bp
     from routes.rewards import rewards_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
     app.register_blueprint(messages_bp, url_prefix='/api/messages')
-    app.register_blueprint(announcements_bp, url_prefix='/api/announcements')
+    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
     app.register_blueprint(forms_bp, url_prefix='/api/forms')
-    app.register_blueprint(grades_bp, url_prefix='/api/grades')
+    app.register_blueprint(evaluations_bp, url_prefix='/api/evaluations')
     app.register_blueprint(rewards_bp, url_prefix='/api/rewards')
-    
+
+    @app.cli.command("init-db")
+    def init_db():
+        """Khởi tạo cơ sở dữ liệu."""
+        db.create_all()
+        print("✅ Database has been initialized.")
+
     return app
+
 
 if __name__ == '__main__':
     app = create_app()

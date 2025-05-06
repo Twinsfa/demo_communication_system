@@ -1,0 +1,116 @@
+/* General Styles */
+body {
+    background-color: #f8f9fa;
+}
+
+/* Login Form */
+#loginForm {
+    max-width: 500px;
+    margin: 50px auto;
+}
+
+/* Dashboard */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.nav-link {
+    padding: 0.5rem 1rem;
+    color: rgba(255,255,255,0.8) !important;
+}
+
+.nav-link:hover {
+    color: #fff !important;
+}
+
+.nav-link i {
+    margin-right: 5px;
+}
+
+/* Sections */
+.section {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Notifications */
+.notification-item {
+    border-left: 4px solid #007bff;
+    margin-bottom: 10px;
+}
+
+.notification-item.unread {
+    background-color: #f8f9fa;
+}
+
+/* Messages */
+#messagesList {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.message {
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.message.sent {
+    background-color: #007bff;
+    color: white;
+    margin-left: 20%;
+}
+
+.message.received {
+    background-color: #f8f9fa;
+    margin-right: 20%;
+}
+
+/* Forms */
+.form-item {
+    border-left: 4px solid #28a745;
+}
+
+.form-item.pending {
+    border-left-color: #ffc107;
+}
+
+.form-item.completed {
+    border-left-color: #28a745;
+}
+
+/* Evaluations */
+.evaluation-item {
+    border-left: 4px solid #17a2b8;
+}
+
+/* Rewards */
+.reward-item {
+    border-left: 4px solid #28a745;
+}
+
+.discipline-item {
+    border-left: 4px solid #dc3545;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    .section {
+        padding: 15px;
+    }
+    
+    #messages .row {
+        flex-direction: column;
+    }
+    
+    #messages .col-md-4 {
+        margin-bottom: 20px;
+    }
+} 

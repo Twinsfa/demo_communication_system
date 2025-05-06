@@ -1,167 +1,199 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import Form, User
+from models import RequestForm, User, Parent, Department, UserRole, Role
 from app import db
 from datetime import datetime
 
 forms_bp = Blueprint('forms', __name__)
 
-def is_school_or_teacher():
+def get_user_roles(user_id):
+    user_roles = UserRole.query.filter_by(user_id=user_id).all()
+    role_ids = [ur.role_id for ur in user_roles]
+    return Role.query.filter(Role.id.in_(role_ids)).all()
+
+@forms_bp.route('/', methods=['POST'])
+@jwt_required()
+def submit_form():
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    return user and user.role in ['school', 'teacher']
+    data = request.get_json()
+    
+    # Check if user is a parent
+    roles = get_user_roles(user_id)
+    if not any(role.name == 'parent' for role in roles):
+        return jsonify({'message': 'Only parents can submit forms'}), 403
+    
+    # Validate required fields
+    if not all(k in data for k in ['type', 'content']):
+        return jsonify({'message': 'Missing required fields'}), 400
+    
+    # Get parent
+    parent = Parent.query.filter_by(user_id=user_id).first()
+    if not parent:
+        return jsonify({'message': 'Parent profile not found'}), 404
+    
+    # Create form
+    form = RequestForm(
+        type=data['type'],
+        content=data['content'],
+        parent_id=parent.id,
+        department_id=data.get('department_id'),  # Optional, can be assigned later
+        status='pending'
+    )
+    
+    db.session.add(form)
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'message': 'Form submitted successfully',
+            'form_id': form.id
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error submitting form'}), 500
 
 @forms_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_forms():
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    
-    # Get query parameters
-    form_type = request.args.get('type')
-    status = request.args.get('status')
-    limit = request.args.get('limit', 50, type=int)
-    offset = request.args.get('offset', 0, type=int)
+    roles = get_user_roles(user_id)
     
     # Base query
-    query = Form.query
+    query = RequestForm.query
     
     # Filter based on user role
-    if user.role == 'parent':
-        query = query.filter_by(sender_id=user_id)
-    elif user.role == 'teacher':
-        # Teachers can see forms from parents of their students
-        query = query.join(User, Form.sender_id == User.id).filter(
-            (User.parent_id == user_id) |  # Forms from their students' parents
-            (Form.receiver_id == user_id)  # Forms directly sent to them
-        )
-    elif user.role == 'school':
-        # School can see all forms
+    if any(role.name == 'parent' for role in roles):
+        # Parents can only see their own forms
+        parent = Parent.query.filter_by(user_id=user_id).first()
+        if parent:
+            query = query.filter_by(parent_id=parent.id)
+    elif any(role.name == 'department' for role in roles):
+        # Departments can see all forms
         pass
     else:
         return jsonify({'message': 'Unauthorized'}), 403
     
-    # Apply additional filters
+    # Apply filters
+    form_type = request.args.get('type')
+    status = request.args.get('status')
+    
     if form_type:
-        query = query.filter_by(form_type=form_type)
+        query = query.filter_by(type=form_type)
     if status:
         query = query.filter_by(status=status)
     
-    # Order by creation date and paginate
-    forms = query.order_by(Form.created_at.desc()).offset(offset).limit(limit).all()
+    forms = query.order_by(RequestForm.submission_date.desc()).all()
     
     return jsonify([{
         'id': form.id,
-        'title': form.title,
+        'type': form.type,
         'content': form.content,
-        'sender_id': form.sender_id,
-        'sender_name': User.query.get(form.sender_id).full_name,
-        'receiver_id': form.receiver_id,
-        'receiver_name': User.query.get(form.receiver_id).full_name,
-        'form_type': form.form_type,
+        'submission_date': form.submission_date.isoformat(),
         'status': form.status,
-        'created_at': form.created_at.isoformat(),
-        'response': form.response,
-        'response_date': form.response_date.isoformat() if form.response_date else None,
-        'attachments': form.attachments
+        'parent': {
+            'id': form.parent.id,
+            'name': form.parent.name,
+            'email': form.parent.email
+        } if form.parent else None,
+        'department': {
+            'id': form.department.id,
+            'name': form.department.name
+        } if form.department else None
     } for form in forms]), 200
-
-@forms_bp.route('/', methods=['POST'])
-@jwt_required()
-def create_form():
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
-    
-    if user.role != 'parent':
-        return jsonify({'message': 'Only parents can submit forms'}), 403
-    
-    data = request.get_json()
-    
-    # Validate receiver exists and is appropriate
-    receiver = User.query.get(data['receiver_id'])
-    if not receiver:
-        return jsonify({'message': 'Receiver not found'}), 404
-    
-    if receiver.role not in ['school', 'teacher']:
-        return jsonify({'message': 'Invalid receiver role'}), 400
-    
-    form = Form(
-        title=data['title'],
-        content=data['content'],
-        sender_id=user_id,
-        receiver_id=data['receiver_id'],
-        form_type=data['form_type'],
-        attachments=data.get('attachments')
-    )
-    
-    db.session.add(form)
-    db.session.commit()
-    
-    return jsonify({
-        'id': form.id,
-        'title': form.title,
-        'content': form.content,
-        'sender_id': form.sender_id,
-        'receiver_id': form.receiver_id,
-        'form_type': form.form_type,
-        'status': form.status,
-        'created_at': form.created_at.isoformat(),
-        'attachments': form.attachments
-    }), 201
-
-@forms_bp.route('/<int:form_id>/respond', methods=['POST'])
-@jwt_required()
-def respond_to_form(form_id):
-    if not is_school_or_teacher():
-        return jsonify({'message': 'Unauthorized'}), 403
-    
-    form = Form.query.get(form_id)
-    if not form:
-        return jsonify({'message': 'Form not found'}), 404
-    
-    data = request.get_json()
-    
-    form.status = data['status']
-    form.response = data['response']
-    form.response_date = datetime.utcnow()
-    
-    db.session.commit()
-    
-    return jsonify({
-        'id': form.id,
-        'status': form.status,
-        'response': form.response,
-        'response_date': form.response_date.isoformat()
-    }), 200
 
 @forms_bp.route('/<int:form_id>', methods=['GET'])
 @jwt_required()
 def get_form(form_id):
     user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    roles = get_user_roles(user_id)
     
-    form = Form.query.get(form_id)
+    form = RequestForm.query.get(form_id)
     if not form:
         return jsonify({'message': 'Form not found'}), 404
     
     # Check permissions
-    if user.role == 'parent' and form.sender_id != user_id:
-        return jsonify({'message': 'Unauthorized'}), 403
-    elif user.role == 'teacher' and form.receiver_id != user_id:
+    if any(role.name == 'parent' for role in roles):
+        parent = Parent.query.filter_by(user_id=user_id).first()
+        if not parent or form.parent_id != parent.id:
+            return jsonify({'message': 'Unauthorized'}), 403
+    elif not any(role.name == 'department' for role in roles):
         return jsonify({'message': 'Unauthorized'}), 403
     
     return jsonify({
         'id': form.id,
-        'title': form.title,
+        'type': form.type,
         'content': form.content,
-        'sender_id': form.sender_id,
-        'sender_name': User.query.get(form.sender_id).full_name,
-        'receiver_id': form.receiver_id,
-        'receiver_name': User.query.get(form.receiver_id).full_name,
-        'form_type': form.form_type,
+        'submission_date': form.submission_date.isoformat(),
         'status': form.status,
-        'created_at': form.created_at.isoformat(),
-        'response': form.response,
-        'response_date': form.response_date.isoformat() if form.response_date else None,
-        'attachments': form.attachments
-    }), 200 
+        'parent': {
+            'id': form.parent.id,
+            'name': form.parent.name,
+            'email': form.parent.email
+        } if form.parent else None,
+        'department': {
+            'id': form.department.id,
+            'name': form.department.name
+        } if form.department else None
+    }), 200
+
+@forms_bp.route('/<int:form_id>/status', methods=['PUT'])
+@jwt_required()
+def update_form_status(form_id):
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    # Check if user is department
+    roles = get_user_roles(user_id)
+    if not any(role.name == 'department' for role in roles):
+        return jsonify({'message': 'Only departments can update form status'}), 403
+    
+    if 'status' not in data:
+        return jsonify({'message': 'Status is required'}), 400
+    
+    if data['status'] not in ['pending', 'processing', 'completed']:
+        return jsonify({'message': 'Invalid status'}), 400
+    
+    form = RequestForm.query.get(form_id)
+    if not form:
+        return jsonify({'message': 'Form not found'}), 404
+    
+    form.status = data['status']
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Form status updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error updating form status'}), 500
+
+@forms_bp.route('/<int:form_id>/assign', methods=['PUT'])
+@jwt_required()
+def assign_form(form_id):
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    # Check if user is department
+    roles = get_user_roles(user_id)
+    if not any(role.name == 'department' for role in roles):
+        return jsonify({'message': 'Only departments can assign forms'}), 403
+    
+    if 'department_id' not in data:
+        return jsonify({'message': 'Department ID is required'}), 400
+    
+    form = RequestForm.query.get(form_id)
+    if not form:
+        return jsonify({'message': 'Form not found'}), 404
+    
+    department = Department.query.get(data['department_id'])
+    if not department:
+        return jsonify({'message': 'Department not found'}), 404
+    
+    form.department_id = department.id
+    form.status = 'processing'
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Form assigned successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error assigning form'}), 500 
