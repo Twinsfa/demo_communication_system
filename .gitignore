@@ -1,0 +1,7 @@
+# Bỏ folder ở root
+instance/
+venv/
+
+# Bỏ file và folder trong backend/
+backend/__pycache__/
+backend/.env
