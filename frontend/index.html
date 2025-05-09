@@ -127,26 +127,95 @@
 
             <!-- Messages Section -->
             <div id="messages" class="section d-none">
-                <h2>Messages</h2>
+                <h2>Tin nhắn</h2>
                 <div class="row">
                     <div class="col-md-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">Cuộc trò chuyện</span>
+                            <button class="btn btn-sm btn-success" id="newConvBtn">
+                                <i class="fas fa-plus"></i> Tạo mới
+                            </button>
+                        </div>
                         <div class="list-group" id="conversationsList"></div>
                     </div>
                     <div class="col-md-8">
                         <div class="card">
                             <div class="card-header" id="currentConversation">
-                                Select a conversation
+                                <div id="participantsList" class="mb-2"></div>
+                                <span>Chọn cuộc trò chuyện</span>
+                                <button class="btn btn-sm btn-outline-primary float-end d-none" id="addParticipantBtn">
+                                    <i class="fas fa-user-plus"></i> Thêm người tham gia
+                                </button>
                             </div>
                             <div class="card-body">
                                 <div id="messagesList" class="mb-3" style="height: 300px; overflow-y: auto;"></div>
                                 <form id="messageForm" class="d-none">
                                     <div class="input-group">
-                                        <input type="text" class="form-control" id="messageInput" placeholder="Type a message...">
-                                        <button class="btn btn-primary" type="submit">Send</button>
+                                        <input type="text" class="form-control" id="messageInput" placeholder="Nhập tin nhắn...">
+                                        <button class="btn btn-primary" type="submit">Gửi</button>
                                     </div>
                                 </form>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: New Conversation -->
+            <div class="modal fade" id="newConvModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Tạo cuộc trò chuyện mới</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="newConvForm">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Tiêu đề</label>
+                                    <input type="text" class="form-control" id="newConvTitle" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Loại</label>
+                                    <select class="form-select" id="newConvType">
+                                        <option value="private">Riêng tư</option>
+                                        <option value="group">Nhóm</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Người tham gia</label>
+                                    <div id="userList" class="border p-2 rounded" style="max-height: 200px; overflow-y: auto;"></div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                <button type="submit" class="btn btn-primary">Tạo</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Add Participant -->
+            <div class="modal fade" id="addParticipantModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Thêm người tham gia</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="addParticipantForm">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">ID người dùng</label>
+                                    <input type="text" class="form-control" id="addParticipantId" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                <button type="submit" class="btn btn-primary">Thêm</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -168,13 +237,149 @@
 
             <!-- Rewards Section -->
             <div id="rewards" class="section d-none">
-                <h2>Rewards & Discipline</h2>
-                <div class="list-group" id="rewardsList"></div>
+                <h2>Khen thưởng & Kỷ luật</h2>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Thống kê</h5>
+                                <canvas id="rewardsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Thống kê theo loại</h5>
+                                <canvas id="contentTypeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="btn-group">
+                        <button class="btn btn-outline-primary active" data-type="all">Tất cả</button>
+                        <button class="btn btn-outline-success" data-type="reward">Khen thưởng</button>
+                        <button class="btn btn-outline-danger" data-type="discipline">Kỷ luật</button>
+                    </div>
+                    <div class="btn-group me-2">
+                        <button class="btn btn-outline-secondary active" data-view="all">Tất cả</button>
+                        <button class="btn btn-outline-secondary" data-view="student">Học sinh</button>
+                        <button class="btn btn-outline-secondary" data-view="class">Lớp</button>
+                        <button class="btn btn-outline-secondary" data-view="school">Toàn trường</button>
+                    </div>
+                    <button class="btn btn-primary" id="newRewardBtn">
+                        <i class="fas fa-plus"></i> Thêm mới
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Học sinh</th>
+                                <th>Khoa</th>
+                                <th>Loại</th>
+                                <th>Nội dung</th>
+                                <th>Ngày</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rewardsList"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal: New Reward -->
+            <div class="modal fade" id="newRewardModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Thêm khen thưởng/kỷ luật</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="newRewardForm">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Loại</label>
+                                    <select name="type" class="form-select" required>
+                                        <option value="reward">Khen thưởng</option>
+                                        <option value="discipline">Kỷ luật</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Loại nội dung</label>
+                                    <select name="content_type" class="form-select" required></select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Học sinh</label>
+                                    <select name="student_id" class="form-select" required></select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Nội dung</label>
+                                    <textarea name="content" class="form-control" rows="3" required></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Ngày</label>
+                                    <input type="date" name="date" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                <button type="submit" class="btn btn-primary">Lưu</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Edit Reward -->
+            <div class="modal fade" id="editRewardModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Chỉnh sửa khen thưởng/kỷ luật</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="editRewardForm">
+                            <div class="modal-body">
+                                <input type="hidden" name="id">
+                                <div class="mb-3">
+                                    <label class="form-label">Loại</label>
+                                    <select name="type" class="form-select" required>
+                                        <option value="reward">Khen thưởng</option>
+                                        <option value="discipline">Kỷ luật</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Loại nội dung</label>
+                                    <select name="content_type" class="form-select" required></select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Học sinh</label>
+                                    <select name="student_id" class="form-select" required></select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Nội dung</label>
+                                    <textarea name="content" class="form-control" rows="3" required></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Ngày</label>
+                                    <input type="date" name="date" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                <button type="submit" class="btn btn-primary">Lưu</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/services/api.service.js"></script>
     <script type="module" src="js/app.js"></script>
 </body>
