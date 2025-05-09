@@ -94,6 +94,35 @@
             <div id="notifications" class="section">
                 <h2>Notifications</h2>
                 <div class="list-group" id="notificationsList"></div>
+
+                <!-- Create Notification Form -->
+                <div id="createNotification" class="mt-4">
+                    <h3>Create Notification</h3>
+                    <form id="createNotificationForm">
+                        <div class="mb-3">
+                            <label for="notificationTitle" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="notificationTitle" placeholder="Enter notification title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="notificationContent" class="form-label">Content</label>
+                            <textarea class="form-control" id="notificationContent" rows="4" placeholder="Enter notification content" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="notificationType" class="form-label">Type</label>
+                            <select class="form-select" id="notificationType" required>
+                                <option value="all">All Users</option>
+                                <option value="teachers">Teachers</option>
+                                <option value="parents">Parents</option>
+                                <option value="specific_class">Specific Class</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 d-none" id="classIdField">
+                            <label for="classId" class="form-label">Class ID</label>
+                            <input type="text" class="form-control" id="classId" placeholder="Enter class ID">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Notification</button>
+                    </form>
+                </div>
             </div>
 
             <!-- Messages Section -->
@@ -149,4 +178,4 @@
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>
 </body>
-</html> 
+</html>

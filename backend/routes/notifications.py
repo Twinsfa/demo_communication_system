@@ -19,10 +19,11 @@ def create_notification():
     
     # Check if user is department or teacher
     roles = get_user_roles(user_id)
+    is_admin = any(role.name == 'admin' for role in roles)
     is_department = any(role.name == 'department' for role in roles)
     is_teacher = any(role.name == 'teacher' for role in roles)
     
-    if not (is_department or is_teacher):
+    if not (is_department or is_teacher or is_admin):
         return jsonify({'message': 'Unauthorized'}), 403
     
     # Validate required fields
