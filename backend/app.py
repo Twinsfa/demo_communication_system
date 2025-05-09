@@ -37,7 +37,7 @@ def create_app():
     from routes.notifications import notifications_bp
     from routes.forms import forms_bp
     from routes.evaluations import evaluations_bp
-    from routes.rewards import rewards_bp
+    from routes.rewards import rewards_bp, init_rewards_table
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
@@ -46,6 +46,10 @@ def create_app():
     app.register_blueprint(forms_bp, url_prefix='/api/forms')
     app.register_blueprint(evaluations_bp, url_prefix='/api/evaluations')
     app.register_blueprint(rewards_bp, url_prefix='/api/rewards')
+
+    with app.app_context():
+        init_rewards_table()
+
 
     @app.cli.command("init-db")
     def init_db():

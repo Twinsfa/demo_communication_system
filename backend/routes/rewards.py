@@ -19,13 +19,13 @@ def init_rewards_table():
     try:
         # Thêm cột content_type nếu chưa tồn tại
         with db.engine.connect() as conn:
-            conn.execute("""
+            conn.execute(text("""
                 ALTER TABLE reward_and_discipline 
                 ADD COLUMN IF NOT EXISTS content_type VARCHAR(50)
-            """)
+            """))
             
             # Cập nhật dữ liệu hiện có
-            conn.execute("""
+            conn.execute(text("""
                 UPDATE reward_and_discipline 
                 SET content_type = CASE 
                     WHEN type = 'reward' THEN 'achievement'
@@ -33,21 +33,21 @@ def init_rewards_table():
                     ELSE 'other'
                 END
                 WHERE content_type IS NULL
-            """)
-            
+            """))
+             
             # Đặt cột không được null
-            conn.execute("""
+            conn.execute(text("""
                 ALTER TABLE reward_and_discipline 
                 ALTER COLUMN content_type SET NOT NULL
-            """)
+            """))
             
         return True
     except Exception as e:
         print(f"Error initializing rewards table: {str(e)}")
         return False
 
-# Gọi hàm khởi tạo khi module được import
-init_rewards_table()
+# # Gọi hàm khởi tạo khi module được import
+# init_rewards_table()
 
 def get_user_roles(user_id):
     """Lấy danh sách vai trò của người dùng"""

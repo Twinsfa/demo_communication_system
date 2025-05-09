@@ -1,6 +1,6 @@
 import datetime
 from app import create_app, db
-from models import User, Role, UserRole, Department, Teacher, Parent, Student
+from models import User, Role, UserRole, Department, Teacher, Parent, Student, RewardAndDiscipline
 from werkzeug.security import generate_password_hash
 
 def init_demo_data():
@@ -65,6 +65,17 @@ def init_demo_data():
         student = Student(full_name='Demo Student', date_of_birth=datetime.date(2000, 1, 1), gender='male', parent_id=parent.id, user_id=student_user.id)
         db.session.add(student)
 
+        # 6. Reward and Discipline
+        reward = RewardAndDiscipline(
+            type='reward',
+            content_type='achievement',
+            content='Demo reward',
+            date=datetime.date.today(),
+            student_id=student.id,
+            department_id=department.id
+        )
+        db.session.add(reward)
+        
         try:
             db.session.commit()
             print("✅ Demo data has been initialized successfully!")
@@ -73,4 +84,4 @@ def init_demo_data():
             print(f"❌ Error initializing demo data: {str(e)}")
 
 if __name__ == '__main__':
-    init_demo_data() 
+    init_demo_data()
