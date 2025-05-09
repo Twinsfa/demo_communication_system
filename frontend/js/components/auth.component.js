@@ -14,9 +14,9 @@ const AuthComponent = {
     },
     async handleLogin(e) {
         e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const role = document.getElementById('role').value;
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const role = document.getElementById('role').value.trim();
         try {
             const response = await api.login(username, password, role);
             if (response.access_token) {

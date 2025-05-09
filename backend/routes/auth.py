@@ -10,7 +10,7 @@ def register():
     data = request.get_json()
     
     # Validate required fields
-    required_fields = ['username', 'password', 'role_type', 'email']
+    required_fields = ['username', 'password', 'role', 'email']
     if not all(field in data for field in required_fields):
         return jsonify({'message': 'Missing required fields'}), 400
 
@@ -25,7 +25,7 @@ def register():
     db.session.flush()  # Get user ID
 
     # Get role
-    role = Role.query.filter_by(name=data['role_type']).first()
+    role = Role.query.filter_by(name=data['role']).first()
     if not role:
         return jsonify({'message': 'Invalid role type'}), 400
 
@@ -34,7 +34,7 @@ def register():
     db.session.add(user_role)
 
     # Create role-specific profile
-    if data['role_type'] == 'teacher':
+    if data['role'] == 'teacher':
         teacher = Teacher(
             full_name=data.get('full_name'),
             email=data['email'],
@@ -42,7 +42,7 @@ def register():
             user_id=user.id
         )
         db.session.add(teacher)
-    elif data['role_type'] == 'parent':
+    elif data['role'] == 'parent':
         parent = Parent(
             name=data.get('full_name'),
             email=data['email'],
@@ -50,7 +50,7 @@ def register():
             user_id=user.id
         )
         db.session.add(parent)
-    elif data['role_type'] == 'student':
+    elif data['role'] == 'student':
         student = Student(
             full_name=data.get('full_name'),
             date_of_birth=data.get('date_of_birth'),
@@ -71,7 +71,7 @@ def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
-    role_type = data.get('role_type')  # teacher, student, parent
+    role_type = data.get('role')  # teacher, student, parent
 
     if not username or not password or not role_type:
         return jsonify({'message': 'Missing required fields'}), 400
