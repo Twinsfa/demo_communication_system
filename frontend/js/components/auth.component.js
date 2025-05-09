@@ -9,10 +9,18 @@ const AuthComponent = {
         this.dashboard = document.getElementById('dashboard');
         this.loginFormContainer = document.getElementById('loginForm');
 
-        this.loginForm.addEventListener('submit', this.handleLogin.bind(this));
-        this.logoutBtn.addEventListener('click', this.handleLogout.bind(this));
+        console.log('AuthComponent.init');
+        console.log('loginForm:', this.loginForm);
+
+        if (this.loginForm) {
+            this.loginForm.addEventListener('submit', this.handleLogin.bind(this));
+        }
+        if (this.logoutBtn) {
+            this.logoutBtn.addEventListener('click', this.handleLogout.bind(this));
+        }
     },
     async handleLogin(e) {
+        console.log('handleLogin called');
         e.preventDefault();
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
@@ -50,4 +58,4 @@ const AuthComponent = {
     }
 };
 
-export default AuthComponent; 
+export default AuthComponent;

@@ -375,4 +375,6 @@ class RewardsComponent {
 }
 
 // Initialize component
-const rewardsComponent = new RewardsComponent(); 
+const rewardsComponent = new RewardsComponent();
+
+export default RewardsComponent;

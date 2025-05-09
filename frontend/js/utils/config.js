@@ -2,7 +2,7 @@
 export const API_URL = 'http://localhost:5000/api';
 
 // Auth Header
-export function getAuthHeader() {
+export function getAuthHeaders() {
     const token = localStorage.getItem('token');
     return {
         'Authorization': `Bearer ${token}`,

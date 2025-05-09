@@ -25,7 +25,7 @@ def create_app():
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
     
     # Initialize extensions with app
-    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:8000", "http://127.0.0.1:8000"]}})
+    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:8000", "http://127.0.0.1:8000"]}}, supports_credentials=True)
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
@@ -47,9 +47,6 @@ def create_app():
     app.register_blueprint(evaluations_bp, url_prefix='/api/evaluations')
     app.register_blueprint(rewards_bp, url_prefix='/api/rewards')
 
-    with app.app_context():
-        init_rewards_table()
-
 
     @app.cli.command("init-db")
     def init_db():
@@ -62,10 +59,11 @@ def create_app():
         """Khởi tạo dữ liệu demo."""
         from init_data import init_demo_data
         init_demo_data()
+        init_rewards_table()
 
     return app
 
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True) 
+    app.run(debug=True, port=5000) 

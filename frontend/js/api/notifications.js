@@ -1,8 +1,7 @@
-const API_BASE_URL = 'http://localhost:5000/api';
 import { getAuthHeaders, handleResponse } from '../utils/helpers.js';
-
+import { API_URL } from '../utils/config.js';
 export async function getNotifications() {
-    const response = await fetch(`${API_BASE_URL}/notifications`, {
+    const response = await fetch(`${API_URL}/notifications`, {
         headers: getAuthHeaders(),
     });
     return handleResponse(response);

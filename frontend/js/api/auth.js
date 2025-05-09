@@ -1,23 +1,21 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_URL } from '../utils/config.js';
 
-export async function fetchWithAuth(endpoint, options = {}) {
-        const token = localStorage.getItem('token');
-        const headers = {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            ...options.headers
-        };
+import { getAuthHeaders} from '../utils/helpers.js';
 
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            ...options,
-            headers
-        });
 
-        return handleResponse(response);
+export async function register(username, password, role) {
+    const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password, role }),
+    });
+    return handleResponse(response);
 }
 
 export async function login(username, password, role) {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

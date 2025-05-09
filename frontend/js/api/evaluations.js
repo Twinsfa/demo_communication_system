@@ -1,8 +1,8 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_URL } from '../utils/config.js';
 import { getAuthHeaders, handleResponse } from '../utils/helpers.js';
 
 export async function getEvaluations() {
-    const response = await fetch(`${API_BASE_URL}/evaluations`, {
+    const response = await fetch(`${API_URL}/evaluations`, {
         headers: getAuthHeaders(),
     });
     return handleResponse(response);

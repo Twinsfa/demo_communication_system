@@ -150,7 +150,3 @@ export function throttle(func, limit) {
     };
 }
 
-// Các nhóm chức năng còn lại (ví dụ: hiển thị lỗi, format, validate, ...)
-export function showError(message) {
-    alert(message);
-} 

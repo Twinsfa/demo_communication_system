@@ -1,9 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import RewardAndDiscipline, User, Student, Department, UserRole, Role, Class
-from app import db
 from datetime import datetime
-from sqlalchemy import func
+from sqlalchemy import func, text
 from collections import defaultdict
 
 rewards_bp = Blueprint('rewards', __name__)
@@ -14,16 +13,12 @@ CONTENT_TYPES = {
     'discipline': ['violation', 'misconduct', 'attendance', 'other']
 }
 
+from app import db
 def init_rewards_table():
     """Khởi tạo bảng reward_and_discipline với trường content_type"""
     try:
         # Thêm cột content_type nếu chưa tồn tại
         with db.engine.connect() as conn:
-            conn.execute(text("""
-                ALTER TABLE reward_and_discipline 
-                ADD COLUMN IF NOT EXISTS content_type VARCHAR(50)
-            """))
-            
             # Cập nhật dữ liệu hiện có
             conn.execute(text("""
                 UPDATE reward_and_discipline 
@@ -35,11 +30,6 @@ def init_rewards_table():
                 WHERE content_type IS NULL
             """))
              
-            # Đặt cột không được null
-            conn.execute(text("""
-                ALTER TABLE reward_and_discipline 
-                ALTER COLUMN content_type SET NOT NULL
-            """))
             
         return True
     except Exception as e:

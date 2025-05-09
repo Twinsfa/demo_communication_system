@@ -128,6 +128,7 @@ class RewardAndDiscipline(db.Model):
     type = db.Column(db.String(50), nullable=False)  # reward, discipline
     date = db.Column(db.Date, nullable=False)
     content = db.Column(db.Text, nullable=False)
+    content_type = db.Column(db.String(50), nullable=False)
     points = db.Column(db.Integer)  # For rewards: positive points, for discipline: negative points
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)

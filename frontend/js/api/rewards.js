@@ -1,9 +1,9 @@
-import { API_URL, getAuthHeader } from '../utils/config.js';
+import { API_URL, getAuthHeaders } from '../utils/config.js';
 
 const rewardsApi = {
     async getAll() {
         const response = await fetch(`${API_URL}/rewards`, {
-            headers: getAuthHeader()
+            headers: getAuthHeaders()
         });
         if (!response.ok) {
             throw new Error('Lỗi khi tải danh sách khen thưởng/kỷ luật');
@@ -13,7 +13,7 @@ const rewardsApi = {
 
     async getById(id) {
         const response = await fetch(`${API_URL}/rewards/${id}`, {
-            headers: getAuthHeader()
+            headers: getAuthHeaders()
         });
         if (!response.ok) {
             throw new Error('Lỗi khi tải thông tin khen thưởng/kỷ luật');
@@ -25,7 +25,7 @@ const rewardsApi = {
         const response = await fetch(`${API_URL}/rewards`, {
             method: 'POST',
             headers: {
-                ...getAuthHeader(),
+                ...getAuthHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
@@ -41,7 +41,7 @@ const rewardsApi = {
         const response = await fetch(`${API_URL}/rewards/${id}`, {
             method: 'PUT',
             headers: {
-                ...getAuthHeader(),
+                ...getAuthHeaders(),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
@@ -56,7 +56,7 @@ const rewardsApi = {
     async delete(id) {
         const response = await fetch(`${API_URL}/rewards/${id}`, {
             method: 'DELETE',
-            headers: getAuthHeader()
+            headers: getAuthHeaders()
         });
         if (!response.ok) {
             const error = await response.json();
@@ -67,7 +67,7 @@ const rewardsApi = {
 
     async getStudentStatistics(studentId) {
         const response = await fetch(`${API_URL}/rewards/statistics/student/${studentId}`, {
-            headers: getAuthHeader()
+            headers: getAuthHeaders()
         });
         if (!response.ok) {
             throw new Error('Lỗi khi tải thống kê học sinh');
@@ -87,7 +87,7 @@ const rewardsApi = {
 
     async getSchoolStatistics() {
         const response = await fetch(`${API_URL}/rewards/statistics/school`, {
-            headers: getAuthHeader()
+            headers: getAuthHeaders()
         });
         if (!response.ok) {
             throw new Error('Lỗi khi tải thống kê toàn trường');

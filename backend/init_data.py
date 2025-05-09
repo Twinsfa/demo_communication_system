@@ -64,6 +64,7 @@ def init_demo_data():
         db.session.add(UserRole(user_id=student_user.id, role_id=roles['student'].id))
         student = Student(full_name='Demo Student', date_of_birth=datetime.date(2000, 1, 1), gender='male', parent_id=parent.id, user_id=student_user.id)
         db.session.add(student)
+        db.session.flush()
 
         # 6. Reward and Discipline
         reward = RewardAndDiscipline(
