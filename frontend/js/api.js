@@ -9,19 +9,28 @@ const api = {
             const response = await fetch(`${API_BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({ username, password, role_type: role })
             });
             
             if (!response.ok) {
-                const error = await response.json();
+                let error;
+                try {
+                    error = await response.json();
+                } catch {
+                    error = { message: 'Invalid response from server' };
+                }
                 throw new Error(error.message || 'Login failed');
             }
-            
-            return response.json();
+            const data = await response.json();
+            return data;
         } catch (error) {
             console.error('Login error:', error);
+            if (error.message === 'Failed to fetch') {
+                throw new Error('Could not connect to server. Please check if the backend is running.');
+            }
             throw error;
         }
     },
@@ -30,7 +39,8 @@ const api = {
     async getNotifications() {
         const response = await fetch(`${API_BASE_URL}/notifications`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Accept': 'application/json'
             }
         });
         return response.json();
@@ -40,7 +50,8 @@ const api = {
         const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
             method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Accept': 'application/json'
             }
         });
         return response.json();
@@ -50,7 +61,8 @@ const api = {
     async getConversations() {
         const response = await fetch(`${API_BASE_URL}/messages/conversations`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Accept': 'application/json'
             }
         });
         return response.json();
@@ -59,7 +71,8 @@ const api = {
     async getMessages(conversationId) {
         const response = await fetch(`${API_BASE_URL}/messages/${conversationId}`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Accept': 'application/json'
             }
         });
         return response.json();
@@ -70,7 +83,8 @@ const api = {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ content })
         });
@@ -81,7 +95,8 @@ const api = {
     async getForms() {
         const response = await fetch(`${API_BASE_URL}/forms`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Accept': 'application/json'
             }
         });
         return response.json();
@@ -92,7 +107,8 @@ const api = {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ type, content })
         });
@@ -103,7 +119,8 @@ const api = {
     async getEvaluations() {
         const response = await fetch(`${API_BASE_URL}/evaluations`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Accept': 'application/json'
             }
         });
         return response.json();
@@ -114,7 +131,8 @@ const api = {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ student_id: studentId, content })
         });
@@ -125,7 +143,8 @@ const api = {
     async getRewards() {
         const response = await fetch(`${API_BASE_URL}/rewards`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Accept': 'application/json'
             }
         });
         return response.json();
@@ -136,7 +155,8 @@ const api = {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ type, student_id: studentId, content, date })
         });

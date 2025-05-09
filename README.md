@@ -51,12 +51,13 @@ pip install -r requirements.txt
 cd backend
 $env:FLASK_APP = "app:create_app"
 $env:FLASK_ENV = "development"
-flask init-db
+flask init-db 
+flask init-demo
 
 
 # Linux/Mac
 export FLASK_APP=backend/app.py
-flask init-db
+flask init-db && flask init-demo
 ```
 
 4. Run the backend server:

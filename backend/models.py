@@ -50,7 +50,6 @@ class Parent(db.Model):
     user = db.relationship('User', backref='parent')
     students = db.relationship('Student', backref='parent', lazy=True)
     request_forms = db.relationship('RequestForm', backref='parent', lazy=True)
-    conversations = db.relationship('ConversationUser', backref='parent', lazy=True)
 
 class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -80,7 +79,6 @@ class Teacher(db.Model):
     classes = db.relationship('Class', backref='teacher', lazy=True)
     scores = db.relationship('Score', backref='teacher', lazy=True)
     evaluations = db.relationship('TeacherEvaluation', backref='teacher', lazy=True)
-    conversations = db.relationship('ConversationUser', backref='teacher', lazy=True)
 
 class Class(db.Model):
     id = db.Column(db.Integer, primary_key=True)

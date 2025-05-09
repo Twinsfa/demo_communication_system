@@ -1,3 +1,6 @@
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -22,7 +25,7 @@ def create_app():
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
     
     # Initialize extensions with app
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:8000", "http://127.0.0.1:8000"]}})
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
@@ -49,6 +52,12 @@ def create_app():
         """Khởi tạo cơ sở dữ liệu."""
         db.create_all()
         print("✅ Database has been initialized.")
+
+    @app.cli.command("init-demo")
+    def init_demo():
+        """Khởi tạo dữ liệu demo."""
+        from init_data import init_demo_data
+        init_demo_data()
 
     return app
 

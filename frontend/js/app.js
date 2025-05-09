@@ -29,9 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const response = await api.login(username, password, role);
-            if (response.token) {
-                localStorage.setItem('token', response.token);
-                currentUser = response.user;
+            if (response.access_token) {
+                localStorage.setItem('token', response.access_token);
+                currentUser = response.user_info;
                 showDashboard();
                 loadData();
             } else {
