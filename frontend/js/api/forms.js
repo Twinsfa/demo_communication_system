@@ -2,6 +2,8 @@
 import { getForms, submitForm, getFormById, updateFormStatus, assignFormToDepartment } from './api/forms.js';
 import { getCurrentUser } from './utils/auth.js';
 import { showToast, formatDate } from './utils/helpers.js';
+import { API_URL } from '../utils/config.js';
+import { getAuthHeaders, handleResponse } from '../utils/helpers.js';
 
 // Form types and statuses for display
 const formTypes = {
@@ -417,8 +419,7 @@ async function completeForm(formId) {
         showToast(`Failed to update form status: ${error.message}`, 'error');
     }
 }
-import { API_URL } from '../utils/config.js';
-import { getAuthHeaders, handleResponse } from '../utils/helpers.js';
+
 
 export async function getForms() {
     const response = await fetch(`${API_URL}/forms`, {
