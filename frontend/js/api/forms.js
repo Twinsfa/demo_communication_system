@@ -1,9 +1,7 @@
 // forms.js - Handle forms functionality in the School Management System
-import { getForms, submitForm, getFormById, updateFormStatus, assignFormToDepartment } from './api/forms.js';
-import { getCurrentUser } from './utils/auth.js';
-import { showToast, formatDate } from './utils/helpers.js';
+import { showToast, formatDate, getAuthHeaders, handleResponse, appState } from '../utils/helpers.js';
 import { API_URL } from '../utils/config.js';
-import { getAuthHeaders, handleResponse } from '../utils/helpers.js';
+
 
 // Form types and statuses for display
 const formTypes = {
@@ -69,7 +67,7 @@ async function loadForms(filters = {}) {
 
 // Display forms in the UI
 function displayForms(forms) {
-    const currentUser = getCurrentUser();
+    const currentUser = appState.getCurrentUser();
     const isParent = currentUser.roles.includes('parent');
     const isDepartment = currentUser.roles.includes('department');
 
@@ -314,7 +312,7 @@ async function viewFormDetails(formId) {
         `;
 
         // Add action buttons based on user role and form status
-        const currentUser = getCurrentUser();
+        const currentUser = appState.getCurrentUser();
         const isDepartment = currentUser.roles.includes('department');
 
         if (isDepartment) {

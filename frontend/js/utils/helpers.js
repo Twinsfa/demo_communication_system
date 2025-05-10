@@ -58,6 +58,16 @@ export function showSuccess(message) {
     alert(message);
 }
 
+// Show toast message
+export function showToast(message, type = 'info') {
+    // Tạo một div toast và thêm vào DOM, tuỳ chỉnh giao diện theo type
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerText = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
 // Handle API error
 export function handleError(error) {
     console.error('API Error:', error);

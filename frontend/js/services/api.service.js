@@ -5,11 +5,14 @@ import * as formsApi from '../api/forms.js';
 import * as evaluationsApi from '../api/evaluations.js';
 import * as rewardsApi from '../api/rewards.js';
 
-export default {
-    ...authApi,
-    ...notificationsApi,
-    ...messagesApi,
-    ...formsApi,
-    ...evaluationsApi,
-    ...rewardsApi,
-}; 
+
+const api = {
+    auth: authApi,
+    notifications: notificationsApi,
+    messages: messagesApi,
+    forms: formsApi,
+    evaluations: evaluationsApi,
+    rewards: rewardsApi,
+};
+
+export default api;

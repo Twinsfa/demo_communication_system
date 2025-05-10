@@ -26,7 +26,7 @@ const AuthComponent = {
             const password = document.getElementById('password').value.trim();
             const role = document.getElementById('role').value.trim();
         try {
-            const response = await api.login(username, password, role);
+            const response = await api.auth.login(username, password, role);
             if (response.access_token) {
                 localStorage.setItem('token', response.access_token);
                 appState.setCurrentUser(response.user_info);

@@ -10,6 +10,8 @@ const NotificationsComponent = {
                     <h5 class="mb-1">${notification.title}</h5>
                     <p class="mb-1">${notification.content}</p>
                     <small>${new Date(notification.created_time).toLocaleString()}</small>
+                    <button onclick="markAsRead(${notification.id})">Đánh dấu đã đọc</button>
+                    <button onclick="deleteNotification(${notification.id})">Xóa</button>
                 </div>
             `).join('');
         } catch (error) {
@@ -18,4 +20,14 @@ const NotificationsComponent = {
     }
 };
 
-export default NotificationsComponent; 
+// Ví dụ: thêm các hàm thao tác vào window để gọi từ HTML (hoặc dùng event delegation)
+window.markAsRead = async function(id) {
+    await api.markAsRead(id);
+    NotificationsComponent.render();
+};
+window.deleteNotification = async function(id) {
+    await api.deleteNotification(id);
+    NotificationsComponent.render();
+};
+
+export default NotificationsComponent;
