@@ -30,4 +30,41 @@ window.deleteNotification = async function(id) {
     NotificationsComponent.render();
 };
 
+document.getElementById('sendOption').addEventListener('change', (e) => {
+    const scheduleTimeField = document.getElementById('scheduleTimeField');
+    if (e.target.value === 'schedule') {
+        scheduleTimeField.classList.remove('d-none');
+    } else {
+        scheduleTimeField.classList.add('d-none');
+    }
+});
+
+document.getElementById('createNotificationForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('notificationTitle').value.trim();
+    const content = document.getElementById('notificationContent').value.trim();
+    const type = document.getElementById('notificationType').value;
+    const classId = document.getElementById('classId').value.trim();
+    const sendOption = document.getElementById('sendOption').value;
+    const scheduleTime = document.getElementById('scheduleTime').value;
+
+    const data = {
+        title,
+        content,
+        type,
+        class_id: type === 'specific_class' ? classId : null,
+        send_option: sendOption,
+        schedule_time: sendOption === 'schedule' ? scheduleTime : null,
+    };
+
+    try {
+        await api.notifications.createNotification(data);
+        alert('Notification created successfully');
+        NotificationsComponent.render();
+    } catch (error) {
+        console.error('Error creating notification:', error);
+        alert('Failed to create notification');
+    }
+});
+
 export default NotificationsComponent;

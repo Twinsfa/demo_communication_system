@@ -4,9 +4,15 @@ export const API_URL = 'http://localhost:5000/api';
 // Auth Header
 export function getAuthHeaders() {
     const token = localStorage.getItem('token');
-    return {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+    console.log('Token:', token);
+    if (!token) {
+        console.error('No token found in localStorage');
+        return {};
+    }
+    else return {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
     };
 }
 

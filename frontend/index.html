@@ -120,6 +120,18 @@
                             <label for="classId" class="form-label">Class ID</label>
                             <input type="text" class="form-control" id="classId" placeholder="Enter class ID">
                         </div>
+                        <!-- New: Send Now or Schedule -->
+                        <div class="mb-3">
+                            <label for="sendOption" class="form-label">Send Option</label>
+                            <select class="form-select" id="sendOption" required>
+                                <option value="now">Send Now</option>
+                                <option value="schedule">Schedule</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 d-none" id="scheduleTimeField">
+                            <label for="scheduleTime" class="form-label">Schedule Time</label>
+                            <input type="datetime-local" class="form-control" id="scheduleTime">
+                        </div>
                         <button type="submit" class="btn btn-primary">Create Notification</button>
                     </form>
                 </div>
@@ -519,6 +531,7 @@
         </div>
     </div>
 
+    <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="js/services/api.service.js"></script>

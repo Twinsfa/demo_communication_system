@@ -11,106 +11,109 @@ def get_user_roles(user_id):
     role_ids = [ur.role_id for ur in user_roles]
     return Role.query.filter(Role.id.in_(role_ids)).all()
 
-@notifications_bp.route('/', methods=['POST'])
+# @notifications_bp.route('/', methods=['POST', 'OPTIONS'])
+@notifications_bp.route('', methods=['POST', 'OPTIONS'])
 @jwt_required()
 def create_notification():
+    if request.method == 'OPTIONS':
+        return '', 200  # Trả về 200 cho preflight request
     user_id = get_jwt_identity()
     data = request.get_json()
-    
-    # Check if user is department or teacher
-    roles = get_user_roles(user_id)
-    is_admin = any(role.name == 'admin' for role in roles)
-    is_department = any(role.name == 'department' for role in roles)
-    is_teacher = any(role.name == 'teacher' for role in roles)
-    
-    if not (is_department or is_teacher or is_admin):
-        return jsonify({'message': 'Unauthorized'}), 403
-    
+
     # Validate required fields
-    if not all(k in data for k in ['title', 'content', 'type']):
+    if not all(k in data for k in ['title', 'content', 'type', 'send_option']):
         return jsonify({'message': 'Missing required fields'}), 400
-    
+
     # Create notification
     notification = Notification(
         title=data['title'],
         content=data['content'],
         type=data['type'],
-        sender_id=user_id
+        sender_id=user_id,
+        send_option=data['send_option'],
+        schedule_time=datetime.fromisoformat(data['schedule_time']) if data['send_option'] == 'schedule' else None
     )
     db.session.add(notification)
-    db.session.flush()
-    
-    # Handle recipients based on notification type
-    if data['type'] == 'all':
-        # Send to all users
-        users = User.query.all()
-        for user in users:
-            notification_user = NotificationUser(
-                user_id=user.id,
-                notification_id=notification.id
-            )
-            db.session.add(notification_user)
-    
-    elif data['type'] == 'teachers':
-        # Send to all teachers
-        teachers = Teacher.query.all()
-        for teacher in teachers:
-            notification_user = NotificationUser(
-                user_id=teacher.user_id,
-                notification_id=notification.id
-            )
-            db.session.add(notification_user)
-    
-    elif data['type'] == 'parents':
-        # Send to all parents
-        parents = User.query.join(UserRole).join(Role).filter(Role.name == 'parent').all()
-        for parent in parents:
-            notification_user = NotificationUser(
-                user_id=parent.id,
-                notification_id=notification.id
-            )
-            db.session.add(notification_user)
-    
-    elif data['type'] == 'specific_class':
-        # Send to specific class (students and their parents)
-        if 'class_id' not in data:
-            return jsonify({'message': 'Class ID required for specific class notification'}), 400
+
+    # Handle recipients immediately if send_option is 'now'
+    if data['send_option'] == 'now':
+        # Check if user is department or teacher
+        roles = get_user_roles(user_id)
+        is_admin = any(role.name == 'admin' for role in roles)
+        is_department = any(role.name == 'department' for role in roles)
+        is_teacher = any(role.name == 'teacher' for role in roles)
         
-        class_obj = Class.query.get(data['class_id'])
-        if not class_obj:
-            return jsonify({'message': 'Class not found'}), 404
+        if not (is_department or is_teacher or is_admin):
+            return jsonify({'message': 'Unauthorized'}), 403
         
-        # Get students in the class
-        students = Student.query.join(Student.classes).filter(Class.id == data['class_id']).all()
-        
-        # Add notification for students and their parents
-        for student in students:
-            # Add for student
-            notification_user = NotificationUser(
-                user_id=student.user_id,
-                notification_id=notification.id
-            )
-            db.session.add(notification_user)
-            
-            # Add for parent
-            if student.parent:
+        # Handle recipients based on notification type
+        if data['type'] == 'all':
+            # Send to all users
+            users = User.query.all()
+            for user in users:
                 notification_user = NotificationUser(
-                    user_id=student.parent.user_id,
+                    user_id=user.id,
                     notification_id=notification.id
                 )
                 db.session.add(notification_user)
-    
+        
+        elif data['type'] == 'teachers':
+            # Send to all teachers
+            teachers = Teacher.query.all()
+            for teacher in teachers:
+                notification_user = NotificationUser(
+                    user_id=teacher.user_id,
+                    notification_id=notification.id
+                )
+                db.session.add(notification_user)
+        
+        elif data['type'] == 'parents':
+            # Send to all parents
+            parents = User.query.join(UserRole).join(Role).filter(Role.name == 'parent').all()
+            for parent in parents:
+                notification_user = NotificationUser(
+                    user_id=parent.id,
+                    notification_id=notification.id
+                )
+                db.session.add(notification_user)
+        
+        elif data['type'] == 'specific_class':
+            # Send to specific class (students and their parents)
+            if 'class_id' not in data:
+                return jsonify({'message': 'Class ID required for specific class notification'}), 400
+            
+            class_obj = Class.query.get(data['class_id'])
+            if not class_obj:
+                return jsonify({'message': 'Class not found'}), 404
+            
+            # Get students in the class
+            students = Student.query.join(Student.classes).filter(Class.id == data['class_id']).all()
+            
+            # Add notification for students and their parents
+            for student in students:
+                # Add for student
+                notification_user = NotificationUser(
+                    user_id=student.user_id,
+                    notification_id=notification.id
+                )
+                db.session.add(notification_user)
+                
+                # Add for parent
+                if student.parent:
+                    notification_user = NotificationUser(
+                        user_id=student.parent.user_id,
+                        notification_id=notification.id
+                    )
+                    db.session.add(notification_user)
+
     try:
         db.session.commit()
-        return jsonify({
-            'message': 'Notification created successfully',
-            'notification_id': notification.id
-        }), 201
+        return jsonify({'message': 'Notification created successfully', 'notification_id': notification.id}), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': 'Error creating notification'}), 500
 
-@notifications_bp.route('/', methods=['GET'])
+@notifications_bp.route('', methods=['GET'])
 @jwt_required()
 def get_notifications():
     user_id = get_jwt_identity()
@@ -178,4 +181,4 @@ def delete_notification(notification_id):
     db.session.delete(notification)
     db.session.commit()
     
-    return jsonify({'message': 'Notification deleted successfully'}), 200 
+    return jsonify({'message': 'Notification deleted successfully'}), 200

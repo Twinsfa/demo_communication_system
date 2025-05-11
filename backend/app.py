@@ -8,11 +8,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
 import os
-
-# Initialize extensions
-db = SQLAlchemy()
-migrate = Migrate()
-jwt = JWTManager()
+from extensions import db, migrate, jwt
 
 def create_app():
     app = Flask(__name__)
@@ -29,6 +25,12 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+
+    #  # Khởi động APScheduler
+    # from routes.scheduler import scheduler
+    # if not scheduler.running:
+    #     with app.app_context():
+    #         scheduler.start()
     
     # Register blueprints
     from routes.auth import auth_bp

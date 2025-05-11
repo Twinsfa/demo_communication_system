@@ -7,13 +7,14 @@ import RewardsComponent from './components/rewards.component.js';
 import { appState } from './utils/helpers.js';
 
 // Khởi tạo và render các component khi DOM ready
+const token = localStorage.getItem('token');
 
 document.addEventListener('DOMContentLoaded', () => {
     AuthComponent.init();
     MessagesComponent.init();
 
     // Kiểm tra đăng nhập
-    const token = localStorage.getItem('token');
+    
     if (token) {
         AuthComponent.showDashboard();
         AuthComponent.updateUserInfo();

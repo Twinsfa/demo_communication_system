@@ -28,6 +28,7 @@ const AuthComponent = {
         try {
             const response = await api.auth.login(username, password, role);
             if (response.access_token) {
+                console.log('Login response:', response.access_token);
                 localStorage.setItem('token', response.access_token);
                 appState.setCurrentUser(response.user_info);
                 this.showDashboard();

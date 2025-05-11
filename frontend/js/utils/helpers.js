@@ -1,20 +1,51 @@
 import { ERROR_MESSAGES } from './config.js';
 
 // Helpers & State
+const token = localStorage.getItem('token');
+
+export function getToken() {
+    return token;       
+}
+
 
 export function getAuthHeaders() {
-    const token = localStorage.getItem('token');
     return {
-        'Authorization': `Bearer ${token}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
     };
 }
 
 export async function handleResponse(response) {
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || ERROR_MESSAGES.SERVER_ERROR);
+        // Xử lý các mã lỗi khác nhau
+        if (response.status === 401) {
+            // Unauthorized
+            throw new Error('Unauthorized');
+        } else if (response.status === 403) {
+            // Forbidden
+            throw new Error('Forbidden');
+        } else {
+            // Các lỗi khác
+            const errorText = await response.text();
+            throw new Error(`Request failed with status ${response.status}: ${errorText}`);
+        }
     }
-    return response.json();
+
+    // Kiểm tra xem response có body không
+    const text = await response.text();
+    if (text) {
+        // Nếu có body, parse JSON
+        try {
+            return JSON.parse(text);
+        } catch (error) {
+            console.error('Error parsing JSON:', error);
+            throw new Error('Invalid JSON response');
+        }
+    } else {
+        // Nếu không có body, trả về null hoặc một giá trị mặc định
+        return null;
+    }
 }
 
 // App State
