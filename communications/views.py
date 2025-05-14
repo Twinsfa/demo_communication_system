@@ -3,10 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Max
 
-from .models import Notification, RequestForm # Các model từ app này
-from .forms import RequestFormSubmissionForm, RequestFormResponseForm # Các form từ app này
+from .models import Notification, RequestForm, Conversation, Message # Các model từ app này
+from .forms import RequestFormSubmissionForm, RequestFormResponseForm, MessageForm, StartConversationForm, NotificationForm # Các form từ app này
 
 @login_required
 def notification_list(request):
@@ -33,24 +33,17 @@ def submit_request_form(request):
     if request.method == 'POST':
         form = RequestFormSubmissionForm(request.POST, user=request.user)
         if form.is_valid():
-            new_request = form.save(commit=False) # Tạo instance nhưng chưa lưu các trường M2M
+            new_request = form.save(commit=False)
             new_request.submitted_by = request.user
             
-            # Xử lý related_student từ related_student_for_parent
-            # Trường này là ForeignKey nên sẽ được gán vào new_request trước khi save()
-            if 'related_student_for_parent' in form.cleaned_data and form.cleaned_data['related_student_for_parent']:
-                new_request.related_student = form.cleaned_data['related_student_for_parent']
+            # Xử lý related_student
+            if 'related_student' in form.cleaned_data and form.cleaned_data['related_student']:
+                new_request.related_student = form.cleaned_data['related_student']
             
-            # assigned_department cũng là ForeignKey và sẽ được form xử lý khi new_request.save() được gọi
-            # nếu nó là một phần của form.cleaned_data và model field.
-
-            new_request.save() # Bước này lưu đối tượng chính và các ForeignKey vào DB. Instance new_request giờ đã có ID.
-
-            # ===> SỬA Ở ĐÂY: Gọi form.save_m2m() để lưu các trường ManyToManyField <===
-            form.save_m2m() # Dòng này sẽ lưu các mối quan hệ cho 'assigned_teachers'
+            new_request.save()
+            form.save_m2m()
 
             messages.success(request, 'Đơn của bạn đã được gửi thành công!')
-            # Nên chuyển hướng đến trang danh sách đơn đã gửi để người dùng thấy đơn mới của họ
             return redirect('communications:my_submitted_requests')
     else:
         form = RequestFormSubmissionForm(user=request.user)
@@ -78,8 +71,6 @@ def department_request_list(request):
 
     department_requests = RequestForm.objects.filter(
         assigned_department=user.department
-    ).exclude(
-        status__in=['RESOLVED', 'REJECTED', 'CLOSED']
     ).order_by('submission_date')
 
     context = {
@@ -107,14 +98,31 @@ def department_request_detail_respond(request, pk):
             updated_request_form = response_form.save(commit=False)
             updated_request_form.responded_by = user
             updated_request_form.response_date = timezone.now()
-            
             updated_request_form.save() # Lưu các thay đổi vào instance
-            # response_form.save_m2m() # Không cần thiết cho RequestFormResponseForm vì nó không xử lý M2M
+
+            # GỬI THÔNG BÁO CHO PHỤ HUYNH
+            parent_user = updated_request_form.submitted_by
+            student = updated_request_form.related_student
+            department_name = user.department.name if hasattr(user, 'department') and user.department else "Phòng ban"
+            title = f"Phản hồi về đơn '{updated_request_form.title}'"
+            content = (
+                f"{department_name} xin phản hồi về đơn '{updated_request_form.title}' của phụ huynh "
+                f"{parent_user.get_full_name() or parent_user.username} - học sinh {student.user.get_full_name() if student else ''} "
+                f"lớp {student.current_class.name if student and student.current_class else ''}.\n\n"
+                f"Nội dung phản hồi: {updated_request_form.response_content}\n"
+                f"Chi tiết xem tại mục Quản lý đơn từ."
+            )
+            notification = Notification.objects.create(
+                title=title,
+                content=content,
+                sent_by=user,
+                status='SENT',
+                is_published=True,
+                publish_time=timezone.now()
+            )
+            notification.target_users.add(parent_user)
 
             messages.success(request, f"Đã cập nhật và phản hồi cho đơn '{request_form_instance.title}'.")
-            
-            # TODO: Gửi thông báo cho người gửi đơn gốc (Phụ huynh)
-            
             return redirect('communications:department_request_list')
     else:
         response_form = RequestFormResponseForm(instance=request_form_instance)
@@ -125,35 +133,18 @@ def department_request_detail_respond(request, pk):
         'page_title': f'Chi tiết và Phản hồi Đơn: {request_form_instance.title}'
     }
     return render(request, 'communications/department_request_detail_respond.html', context)
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.core.exceptions import PermissionDenied
-from django.utils import timezone
-from django.db.models import Q
-
-from .models import Notification, RequestForm # Các model từ app này
-from .forms import RequestFormSubmissionForm, RequestFormResponseForm # Các form từ app này
-# from accounts.models import User, Role # Ví dụ, nếu bạn cần kiểm tra Role cụ thể
-
-# ... (các views notification_list, submit_request_form, my_submitted_requests,
-# department_request_list, department_request_detail_respond đã có ở trên) ...
 
 @login_required
 def teacher_request_list(request):
     user = request.user
-    # Kiểm tra xem user có phải là giáo viên không
-    # (Dựa vào vai trò hoặc một cờ is_teacher trong User model/TeacherProfile)
-    # Giả sử user.role.name == 'TEACHER'
-    if not (hasattr(user, 'role') and user.role and user.role.name == 'TEACHER'):
-        raise PermissionDenied("Bạn không có quyền truy cập trang này. Chức năng này dành cho Giáo viên.")
+    # Kiểm tra xem user có phải là giáo viên không (không phân biệt hoa thường)
+    if not (hasattr(user, 'role') and user.role and user.role.name and user.role.name.strip().upper() == 'TEACHER'):
+        messages.error(request, "Tài khoản của bạn không phải là giáo viên hoặc chưa được gán đúng vai trò. Vui lòng liên hệ quản trị viên.")
+        return redirect('homepage')
 
-    # Lấy các đơn từ được gán cho giáo viên này và chưa được giải quyết hoàn toàn
     teacher_requests = RequestForm.objects.filter(
-        assigned_teachers=user # Lọc các RequestForm mà user hiện tại nằm trong ManyToManyField 'assigned_teachers'
-    ).exclude(
-        status__in=['RESOLVED', 'REJECTED', 'CLOSED'] # Loại trừ các trạng thái đã xong
-    ).order_by('submission_date') # Ưu tiên đơn cũ hơn
+        assigned_teachers=user
+    ).order_by('submission_date')
 
     context = {
         'teacher_requests': teacher_requests,
@@ -164,56 +155,45 @@ def teacher_request_list(request):
 @login_required
 def teacher_request_detail_respond(request, pk):
     user = request.user
-    # Kiểm tra quyền tương tự như teacher_request_list
-    if not (hasattr(user, 'role') and user.role and user.role.name == 'TEACHER'):
+    if not (hasattr(user, 'role') and user.role and user.role.name and user.role.name.strip().upper() == 'TEACHER'):
         raise PermissionDenied("Bạn không có quyền truy cập hoặc xử lý đơn này.")
 
-    # Lấy đơn từ, đảm bảo nó được gán cho giáo viên này
     request_form_instance = get_object_or_404(
         RequestForm,
         pk=pk,
-        assigned_teachers=user # Đảm bảo giáo viên này nằm trong danh sách được gán
+        assigned_teachers=user
     )
 
+    # Nếu có ?view_only=1 thì chỉ xem, không cho phản hồi
+    view_only = request.GET.get('view_only') == '1'
+
+    if view_only:
+        context = {
+            'request_form_instance': request_form_instance,
+            'page_title': f'Chi tiết Đơn (Xem): {request_form_instance.title}',
+            'view_only': True,
+        }
+        return render(request, 'communications/teacher_request_detail_respond.html', context)
+
     if request.method == 'POST':
-        # Sử dụng lại RequestFormResponseForm
         response_form = RequestFormResponseForm(request.POST, instance=request_form_instance)
         if response_form.is_valid():
             updated_request_form = response_form.save(commit=False)
-            updated_request_form.responded_by = user # Người phản hồi là giáo viên này
+            updated_request_form.responded_by = user
             updated_request_form.response_date = timezone.now()
-            
-            # Logic cập nhật status (tương tự như của phòng ban)
-            # current_status_from_form = response_form.cleaned_data.get('status')
-            # if current_status_from_form in ['RESOLVED', 'REJECTED']:
-            #    updated_request_form.status = 'CLOSED' 
-
             updated_request_form.save()
             messages.success(request, f"Đã cập nhật và phản hồi cho đơn '{request_form_instance.title}'.")
-            
-            # TODO: Gửi thông báo cho người gửi đơn gốc (Phụ huynh) rằng đơn đã được phản hồi.
-            
-            return redirect('communications:teacher_request_list') # Chuyển hướng về danh sách đơn của giáo viên
+            return redirect('communications:teacher_request_list')
     else:
         response_form = RequestFormResponseForm(instance=request_form_instance)
 
     context = {
         'request_form_instance': request_form_instance,
         'response_form': response_form,
-        'page_title': f'Chi tiết và Phản hồi Đơn (GV): {request_form_instance.title}'
+        'page_title': f'Chi tiết và Phản hồi Đơn (GV): {request_form_instance.title}',
+        'view_only': False,
     }
     return render(request, 'communications/teacher_request_detail_respond.html', context)
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.core.exceptions import PermissionDenied
-from django.utils import timezone
-from django.db.models import Q, Max
-
-from .models import Notification, RequestForm, Conversation, Message
-from .forms import RequestFormSubmissionForm, RequestFormResponseForm, MessageForm # Thêm MessageForm
-
-# ... (các views khác đã có) ...
 
 @login_required
 def conversation_list(request):
@@ -263,23 +243,6 @@ def conversation_detail(request, conversation_id):
         'page_title': f"{conversation.title or ', '.join([p.username for p in conversation.participants.all() if p != user])}",
     }
     return render(request, 'communications/conversation_detail.html', context)
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.core.exceptions import PermissionDenied
-from django.utils import timezone
-from django.db.models import Q, Max, Count # Thêm Count
-
-from .models import Notification, RequestForm, Conversation, Message
-# Đảm bảo StartConversationForm được import từ forms.py của app communications
-from .forms import RequestFormSubmissionForm, RequestFormResponseForm, MessageForm, StartConversationForm 
-# from accounts.models import User, Role # User đã được import qua settings.AUTH_USER_MODEL nếu cần
-
-# ... (các views notification_list, submit_request_form, my_submitted_requests,
-# department_request_list, department_request_detail_respond,
-# teacher_request_list, teacher_request_detail_respond,
-# conversation_list, conversation_detail đã có ở trên) ...
 
 @login_required
 def start_new_conversation(request):
@@ -336,31 +299,6 @@ def start_new_conversation(request):
         'page_title': 'Bắt đầu Cuộc hội thoại mới',
     }
     return render(request, 'communications/start_new_conversation.html', context)
-
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.core.exceptions import PermissionDenied
-from django.utils import timezone
-from django.db.models import Q, Max, Count
-
-from .models import Notification, RequestForm, Conversation, Message
-from accounts.models import User, Role # Import Role để xử lý recipient_group
-# from school_data.models import Class as SchoolClass # SchoolClass đã được import trong NotificationForm nếu cần
-from .forms import (
-    RequestFormSubmissionForm, 
-    RequestFormResponseForm, 
-    MessageForm, 
-    StartConversationForm,
-    NotificationForm # Import NotificationForm
-)
-
-
-# ... (các views notification_list, submit_request_form, my_submitted_requests,
-# department_request_list, department_request_detail_respond,
-# teacher_request_list, teacher_request_detail_respond,
-# conversation_list, conversation_detail, start_new_conversation đã có ở trên) ...
 
 @login_required
 def create_notification(request):
@@ -461,3 +399,17 @@ def create_notification(request):
     }
     return render(request, 'communications/create_notification.html', context)
 
+@login_required
+def request_detail(request, pk):
+    request_form = get_object_or_404(RequestForm, pk=pk)
+    
+    # Kiểm tra quyền xem đơn
+    if request.user != request_form.submitted_by:
+        raise PermissionDenied("Bạn không có quyền xem đơn này.")
+    
+    context = {
+        'request_form': request_form,
+        'page_title': f'Chi tiết đơn: {request_form.title}',
+        'show_content_only': True  # Thêm flag để template biết chỉ hiển thị nội dung
+    }
+    return render(request, 'communications/my_submitted_requests.html', context)

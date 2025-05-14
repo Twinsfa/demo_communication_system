@@ -1,54 +1,72 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-<h2>{{ page_title }}</h2>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>{{ page_title }}</h2>
+        <form action="{% url 'communications:submit_request_form' %}" method="get" class="m-0">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Tạo đơn mới
+            </button>
+        </form>
+    </div>
 
-{% if user_requests %}
     <style>
-        .request-list { list-style-type: none; padding: 0; }
-        .request-item { background-color: #f9f9f9; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 15px; }
-        .request-item h4 { margin-top: 0; color: #007bff; }
-        .request-item p { margin: 5px 0; }
-        .request-item .label { font-weight: bold; color: #555;}
-        .request-item .status-submitted { color: #ffc107; font-weight: bold;} /* Vàng */
-        .request-item .status-processing { color: #17a2b8; font-weight: bold;} /* Xanh dương nhạt */
-        .request_item .status-resolved { color: #28a745; font-weight: bold;} /* Xanh lá */
-        .request-item .status-rejected { color: #dc3545; font-weight: bold;} /* Đỏ */
-        .request-item .status-closed { color: #6c757d; font-weight: bold;} /* Xám */
-        .response-section { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc; }
+        .request-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .request-table th, .request-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .request-table th { background-color: #f2f2f2; }
+        .request-table tr:nth-child(even){background-color: #f9f9f9;}
+        .request-table tr:hover {background-color: #e9ecef;}
+        .request-table a { color: #007bff; text-decoration: none; }
+        .request-table a:hover { text-decoration: underline; }
     </style>
-
-    <ul class="request-list">
-        {% for request_form in user_requests %}
-            <li class="request-item">
-                <h4>{{ request_form.title }}</h4>
-                <p><span class="label">Loại đơn:</span> {{ request_form.get_form_type_display }}</p>
-                <p><span class="label">Ngày gửi:</span> {{ request_form.submission_date|date:"d/m/Y H:i" }}</p>
-                <p><span class="label">Gửi đến Phòng Ban:</span> {{ request_form.assigned_department.name|default:"Chưa chỉ định" }}</p>
-                <p><span class="label">Trạng thái:</span> 
-                    <span class="status-{{ request_form.status|lower }}">
-                        {{ request_form.get_status_display }}
+    <table class="request-table">
+        <thead>
+            <tr>
+                <th>Tiêu đề</th>
+                <th>Loại đơn</th>
+                <th>Học sinh</th>
+                <th>Lớp</th>
+                <th>Ngày gửi</th>
+                <th>Trạng thái</th>
+                <th>Nội dung đơn</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for request in user_requests %}
+            <tr>
+                <td>{{ request.title }}</td>
+                <td>{{ request.get_form_type_display }}</td>
+                <td>{{ request.related_student.user.get_full_name|default:"-" }}</td>
+                <td>{{ request.related_student.current_class.name|default:"-" }}</td>
+                <td>{{ request.submission_date|date:"d/m/Y H:i" }}</td>
+                <td>
+                    <span class="badge {% if request.status == 'SUBMITTED' %}bg-warning
+                                     {% elif request.status == 'PROCESSING' %}bg-info
+                                     {% elif request.status == 'RESOLVED' %}bg-success
+                                     {% elif request.status == 'REJECTED' %}bg-danger
+                                     {% else %}bg-secondary{% endif %}">
+                        {{ request.get_status_display }}
                     </span>
-                </p>
-                {% if request_form.related_student %}
-                    <p><span class="label">Học sinh liên quan:</span> {{ request_form.related_student.user.get_full_name|default:request_form.related_student.user.username }}</p>
-                {% endif %}
-
-                <p><span class="label">Nội dung:</span></p>
-                <div style="white-space: pre-wrap; background-color: #fff; padding: 5px; border: 1px solid #eee;">{{ request_form.content|linebreaksbr }}</div>
-
-                {% if request_form.response_content %}
-                    <div class="response-section">
-                        <p><span class="label">Phản hồi từ {{ request_form.responded_by.username|default:"Nhà trường" }} ({{ request_form.response_date|date:"d/m/Y H:i" }}):</span></p>
-                        <div style="white-space: pre-wrap; background-color: #e9ecef; padding: 5px; border: 1px solid #ddd;">{{ request_form.response_content|linebreaksbr }}</div>
-                    </div>
-                {% endif %}
-            </li>
-        {% endfor %}
-    </ul>
-{% else %}
-    <p>Bạn chưa gửi đơn từ/kiến nghị nào.</p>
-{% endif %}
+                </td>
+                <td style="white-space: pre-line; max-width: 350px;">
+                    {{ request.content|linebreaksbr }}
+                    {% if request.response_content %}
+                        <hr>
+                        <strong>Phản hồi:</strong><br>
+                        <span class="text-success">{{ request.response_content|linebreaksbr }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center">Bạn chưa gửi đơn nào.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

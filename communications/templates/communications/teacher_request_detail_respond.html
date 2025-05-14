@@ -20,15 +20,15 @@
         <div style="white-space: pre-wrap; background-color: #fff; padding: 10px; border: 1px solid #ddd;">
             {{ request_form_instance.content|linebreaksbr }}
         </div>
-        {% if request_form_instance.response_content and request_form_instance.responded_by != user %}
+        {% if request_form_instance.response_content %}
             <hr>
             <p><strong>Phản hồi trước đó từ {{ request_form_instance.responded_by.username|default:"Nhà trường" }} ({{ request_form_instance.response_date|date:"d/m/Y H:i" }}):</strong></p>
             <div style="white-space: pre-wrap; background-color: #e9ecef; padding: 5px; border: 1px solid #ddd;">{{ request_form_instance.response_content|linebreaksbr }}</div>
         {% endif %}
     </div>
 
+    {% if not view_only %}
     <hr>
-
     <h3>Phản hồi của bạn (Giáo viên)</h3>
     <form method="post" novalidate>
         {% csrf_token %}
@@ -50,6 +50,9 @@
         <button type="submit" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Lưu Phản hồi và Cập nhật</button>
         <a href="{% url 'communications:teacher_request_list' %}" style="margin-left: 10px; color: #6c757d; text-decoration: none;">Quay lại Danh sách</a>
     </form>
+    {% else %}
+    <a href="{% url 'communications:teacher_request_list' %}" class="btn btn-secondary mt-3">Quay lại danh sách</a>
+    {% endif %}
 
     {% endblock %}
     

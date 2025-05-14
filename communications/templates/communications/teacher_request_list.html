@@ -24,6 +24,8 @@
                     <th>Ngày gửi</th>
                     <th>Trạng thái</th>
                     <th>Phòng Ban Được Gửi (Nếu có)</th>
+                    <th>Học sinh</th>
+                    <th>Lớp</th>
                     <th>Hành động</th>
                 </tr>
             </thead>
@@ -36,8 +38,10 @@
                         <td>{{ req_form.submission_date|date:"d/m/Y H:i" }}</td>
                         <td>{{ req_form.get_status_display }}</td>
                         <td>{{ req_form.assigned_department.name|default:"Không" }}</td>
+                        <td>{{ req_form.related_student.user.get_full_name|default:"-" }}</td>
+                        <td>{{ req_form.related_student.current_class.name|default:"-" }}</td>
                         <td>
-                            <a href="{% url 'communications:teacher_respond_request' pk=req_form.pk %}">Xem/Phản hồi</a>
+                            <a href="{% url 'communications:teacher_respond_request' pk=req_form.pk %}?view_only=1">Xem</a>
                         </td>
                     </tr>
                 {% endfor %}

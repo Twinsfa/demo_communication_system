@@ -1,33 +1,20 @@
 from django import forms
-from .models import RequestForm # RequestForm từ .models
+from .models import RequestForm, Message, Conversation # Thêm Conversation
 from accounts.models import StudentProfile, User # StudentProfile, User từ accounts.models
 from school_data.models import Department # Department từ school_data.models
+from django.core.exceptions import PermissionDenied
 
 class RequestFormSubmissionForm(forms.ModelForm):
-    # ... (code của form này đã có) ...
-    related_student_for_parent = forms.ModelChoiceField(
-        queryset=StudentProfile.objects.none(), 
-        required=False,
-        label="Học sinh liên quan (nếu bạn là Phụ huynh)",
+    related_student = forms.ModelChoiceField(
+        queryset=StudentProfile.objects.none(),
+        required=True,
+        label="Chọn học sinh liên quan (con của bạn)",
         widget=forms.Select(attrs={'class': 'form-control'})
     )
-    assigned_department = forms.ModelChoiceField(
-        queryset=Department.objects.all().order_by('name'),
-        required=False, 
-        label="Gửi đến Phòng Ban",
-        empty_label="--- Chọn Phòng Ban (Tùy chọn) ---",
-        widget=forms.Select(attrs={'class': 'form-control'})
-    )
-    assigned_teachers = forms.ModelMultipleChoiceField(
-        queryset=User.objects.filter(role__name='TEACHER', is_active=True).select_related('role').order_by('last_name', 'first_name'),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control', 'size': '5'}),
-        required=False,
-        label="Hoặc/Và Gửi đến Giáo viên (chọn một hoặc nhiều)",
-        help_text="Bạn có thể chọn gửi đơn này cho Phòng Ban và/hoặc một hoặc nhiều Giáo viên."
-    )
+
     class Meta:
         model = RequestForm
-        fields = ['form_type', 'title', 'content', 'related_student_for_parent', 'assigned_department', 'assigned_teachers']
+        fields = ['form_type', 'title', 'content', 'related_student']
         widgets = {
             'form_type': forms.Select(attrs={'class': 'form-control'}),
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nhập tiêu đề đơn...'}),
@@ -38,30 +25,74 @@ class RequestFormSubmissionForm(forms.ModelForm):
             'title': 'Tiêu đề',
             'content': 'Nội dung chi tiết',
         }
+
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        if user and hasattr(user, 'role') and user.role and user.role.name == 'PARENT':
-            if hasattr(user, 'parent_profile') and user.parent_profile:
-                self.fields['related_student_for_parent'].queryset = user.parent_profile.children.select_related('user').order_by('user__first_name', 'user__last_name')
-                self.fields['related_student_for_parent'].label = "Chọn học sinh liên quan (con của bạn)"
-            else:
-                self.fields['related_student_for_parent'].queryset = StudentProfile.objects.none()
-                self.fields['related_student_for_parent'].widget.attrs['disabled'] = True
-                self.fields['related_student_for_parent'].help_text = "Bạn cần cập nhật hồ sơ phụ huynh để chọn học sinh."
+        
+        # Kiểm tra xem người dùng có phải là phụ huynh không
+        if not (self.user and hasattr(self.user, 'role') and self.user.role and self.user.role.name == 'PARENT'):
+            raise PermissionDenied("Chỉ phụ huynh mới được phép gửi đơn.")
+        
+        # Nếu là phụ huynh, hiển thị danh sách con
+        if hasattr(self.user, 'parent_profile') and self.user.parent_profile:
+            self.fields['related_student'].queryset = self.user.parent_profile.children.select_related('user').order_by('user__first_name', 'user__last_name')
         else:
-            if 'related_student_for_parent' in self.fields:
-                 del self.fields['related_student_for_parent']
+            self.fields['related_student'].queryset = StudentProfile.objects.none()
+            self.fields['related_student'].widget.attrs['disabled'] = True
+            self.fields['related_student'].help_text = "Bạn cần cập nhật hồ sơ phụ huynh để chọn học sinh."
+
     def clean(self):
         cleaned_data = super().clean()
-        assigned_department = cleaned_data.get('assigned_department')
-        assigned_teachers = cleaned_data.get('assigned_teachers')
-        if not assigned_department and not assigned_teachers:
+        form_type = cleaned_data.get('form_type')
+        related_student = cleaned_data.get('related_student')
+
+        if not related_student:
             raise forms.ValidationError(
-                "Bạn phải chọn ít nhất một Phòng Ban hoặc một Giáo viên để gửi đơn đến.",
-                code='no_recipient'
+                "Bạn phải chọn học sinh liên quan.",
+                code='no_student'
             )
+
+        # Luôn gửi cho giáo viên chủ nhiệm
+        if related_student.current_class and related_student.current_class.homeroom_teacher:
+            cleaned_data['assigned_teachers'] = [related_student.current_class.homeroom_teacher]
+        else:
+            raise forms.ValidationError(
+                "Không tìm thấy giáo viên chủ nhiệm của học sinh. Vui lòng liên hệ quản trị viên.",
+                code='no_homeroom_teacher'
+            )
+
+        # Tự động gán phòng ban dựa vào loại đơn
+        try:
+            if form_type in ['LEAVE_APPLICATION', 'GRADE_APPEAL']:
+                # Đơn xin nghỉ học và đơn phúc khảo điểm -> Phòng Giáo vụ (ID: 1)
+                cleaned_data['assigned_department'] = Department.objects.get(id=1)
+            else:
+                # Các đơn khác -> Phòng Hành chính (ID: 3)
+                cleaned_data['assigned_department'] = Department.objects.get(id=3)
+        except Department.DoesNotExist:
+            raise forms.ValidationError(
+                "Không tìm thấy phòng ban tương ứng. Vui lòng liên hệ quản trị viên.",
+                code='no_department'
+            )
+
         return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.submitter = self.user
+        instance.related_student = self.cleaned_data['related_student']
+        
+        if commit:
+            instance.save()
+            # Lưu các trường many-to-many
+            if 'assigned_teachers' in self.cleaned_data:
+                instance.assigned_teachers.set(self.cleaned_data['assigned_teachers'])
+            if 'assigned_department' in self.cleaned_data:
+                instance.assigned_department = self.cleaned_data['assigned_department']
+                instance.save()
+        
+        return instance
 
 
 # --- ĐẢM BẢO LỚP NÀY ĐÃ CÓ TRONG FILE communications/forms.py ---
@@ -147,13 +178,38 @@ class RequestFormSubmissionForm(forms.ModelForm):
                  del self.fields['related_student_for_parent']
     def clean(self):
         cleaned_data = super().clean()
-        assigned_department = cleaned_data.get('assigned_department')
-        assigned_teachers = cleaned_data.get('assigned_teachers')
-        if not assigned_department and not assigned_teachers:
+        form_type = cleaned_data.get('form_type')
+        related_student = cleaned_data.get('related_student_for_parent')
+
+        if not related_student:
             raise forms.ValidationError(
-                "Bạn phải chọn ít nhất một Phòng Ban hoặc một Giáo viên để gửi đơn đến.",
-                code='no_recipient'
+                "Bạn phải chọn học sinh liên quan.",
+                code='no_student'
             )
+
+        # Luôn gửi cho giáo viên chủ nhiệm
+        if related_student.current_class and related_student.current_class.homeroom_teacher:
+            cleaned_data['assigned_teachers'] = [related_student.current_class.homeroom_teacher]
+        else:
+            raise forms.ValidationError(
+                "Không tìm thấy giáo viên chủ nhiệm của học sinh. Vui lòng liên hệ quản trị viên.",
+                code='no_homeroom_teacher'
+            )
+
+        # Tự động gán phòng ban dựa vào loại đơn
+        try:
+            if form_type in ['LEAVE_APPLICATION', 'GRADE_APPEAL']:
+                # Đơn xin nghỉ học và đơn phúc khảo điểm -> Phòng Giáo vụ (ID: 1)
+                cleaned_data['assigned_department'] = Department.objects.get(id=1)
+            else:
+                # Các đơn khác -> Phòng Hành chính (ID: 3)
+                cleaned_data['assigned_department'] = Department.objects.get(id=3)
+        except Department.DoesNotExist:
+            raise forms.ValidationError(
+                "Không tìm thấy phòng ban tương ứng. Vui lòng liên hệ quản trị viên.",
+                code='no_department'
+            )
+
         return cleaned_data
 
 class RequestFormResponseForm(forms.ModelForm):

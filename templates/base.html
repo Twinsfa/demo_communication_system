@@ -22,40 +22,54 @@
     <nav>
         <a href="{% url 'homepage' %}">Trang chủ (Thông báo)</a> {# Thay đổi 'communications:notification_list' thành 'homepage' nếu bạn đã đổi tên URL cho trang chủ #}
         {% if user.is_authenticated %}
-            <a href="{% url 'communications:submit_request_form' %}">Gửi Đơn từ</a> {# <<--- LINK MỚI ĐÃ THÊM VÀO ĐÂY --- #}
-            <a href="{% url 'communications:my_submitted_requests' %}">Đơn từ của tôi</a> {# <<--- LINK MỚI --- #}
+            
             {% if user.is_staff and user.department %}
-                <a href="{% url 'communications:department_request_list' %}">Đơn từ Phòng ban</a>
+                <a href="{% url 'communications:department_request_list' %}">Quản lý đơn từ</a>
                 <a href="{% url 'academic_records:add_reward_discipline' %}">Tạo KT/KL (P.Ban)</a> 
                 <a href="{% url 'academic_records:school_wide_reward_discipline_list' %}">Tổng hợp KT/KL</a> {# <<--- LINK MỚI --- #}
+                <a href="{% url 'communications:create_notification' %}">Tạo Thông báo</a>
             {% endif %}    
+
             {# Links cho Giáo viên #}
             {% if user.role.name == 'TEACHER' %}
-                <a href="{% url 'communications:teacher_request_list' %}">Đơn từ cho GV</a>
+            <!--    <a href="{% url 'communications:teacher_request_list' %}">Đơn từ cho GV</a> -->
+                <a href="{% url 'communications:teacher_request_list' %}">Quản lý đơn từ</a>
                 <a href="{% url 'academic_records:enter_scores' %}">Nhập Điểm</a> {# <<--- LINK MỚI --- #}
                 <a href="{% url 'academic_records:teacher_view_class_scores' %}">Điểm Lớp CN</a> {# <<--- LINK MỚI --- #}
                 {# Link cho Giáo viên Chủ nhiệm xem Khen thưởng/Kỷ luật của lớp mình #}
-                <a href="{% url 'academic_records:teacher_view_class_rewards_discipline' %}">KT/KL Lớp CN</a>
-                {# Link cho Giáo viên tạo Khen thưởng/Kỷ luật #}
-                <a href="{% url 'academic_records:add_reward_discipline' %}">Tạo KT/KL (GV)</a>
-                <a href="{% url 'academic_records:add_evaluation' %}">Viết Nhận xét</a> {# <<--- LINK NÀY --- #}
-                <a href="{% url 'academic_records:teacher_my_evaluations' %}">Đánh giá của tôi</a> {# <<--- LINK NÀY --- #}
+                <a href="{% url 'academic_records:teacher_view_class_rewards_discipline' %}">KT/KL Lớp CN</a> 
+            <!--    {# Link cho Giáo viên tạo Khen thưởng/Kỷ luật #}
+                 <a href="{% url 'academic_records:add_reward_discipline' %}">Tạo KT/KL (GV)</a>--> 
+                <a href="{% url 'academic_records:add_evaluation' %}">Nhận xét môn học </a> {# <<--- LINK NÀY --- #}
+                <a href="{% url 'academic_records:teacher_my_evaluations' %}">Đánh giá hạnh kiểm </a> {# <<--- LINK NÀY --- #}
              {% endif %}
             {# --- KẾT THÚC LINK MỚI --- #}
+
+
             {# --- LINK MỚI CHO TIN NHẮN --- #}
             <a href="{% url 'communications:conversation_list' %}">Tin nhắn</a>
             {# --- KẾT THÚC LINK MỚI --- #}
+
+
             {# --- LINK MỚI ĐỂ TẠO THÔNG BÁO --- #}
             {% if user.role.name == 'TEACHER' or user.role.name == 'SCHOOL_ADMIN' or user.role.name == 'ADMIN' %}
                 <a href="{% url 'communications:create_notification' %}">Tạo Thông báo</a>
             {% endif %}
             {# --- KẾT THÚC LINK MỚI --- #}
+
+
             {# --- LINK MỚI CHO XEM ĐIỂM --- #}
             {% if user.role.name == 'STUDENT' or user.role.name == 'PARENT' %}
-                <a href="{% url 'academic_records:view_scores' %}">Xem Điểm</a>
-                <a href="{% url 'academic_records:view_reward_discipline' %}">Khen thưởng/Kỷ luật</a> {# <<--- LINK MỚI --- #}
-                <a href="{% url 'academic_records:view_evaluations' %}">Xem Nhận xét</a> {# <<--- LINK NÀY --- #}
+                <a href="{% url 'academic_records:view_scores' %}">Điểm của tôi</a>
+                <a href="{% url 'academic_records:view_reward_discipline' %}">Khen thưởng và Kỷ luật</a> {# <<--- LINK MỚI --- #}
+                <a href="{% url 'academic_records:view_evaluations' %}">Nhận xét của giáo viên </a> {# <<--- LINK NÀY --- #}
             {% endif %}
+
+
+            {% if user.role.name == 'PARENT' %}
+                <a href="{% url 'communications:my_submitted_requests' %}">Quản lý đơn từ</a>
+            {% endif %}
+
             {# --- KẾT THÚC LINK MỚI --- #}            
             <span style="color: white; margin: 0 15px;">Chào, {{ user.username }}!</span> {# Thêm style cho dễ nhìn #}
             <form method="post" action="{% url 'logout' %}" style="display: inline;">

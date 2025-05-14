@@ -23,25 +23,31 @@
                 <th>Loại đơn</th>
                 <th>Ngày gửi</th>
                 <th>Trạng thái</th>
+                <th>Học sinh</th>
+                <th>Lớp</th>
+                <th>Nội dung đơn</th>
                 <th>Hành động</th>
             </tr>
         </thead>
         <tbody>
             {% for req_form in department_requests %}
-                <tr>
-                    <td>{{ req_form.title }}</td>
-                    <td>{{ req_form.submitted_by.username }}</td>
-                    <td>{{ req_form.get_form_type_display }}</td>
-                    <td>{{ req_form.submission_date|date:"d/m/Y H:i" }}</td>
-                    <td>{{ req_form.get_status_display }}</td>
-                    <td>
-                        <a href="{% url 'communications:department_respond_request' pk=req_form.pk %}">Xem/Phản hồi</a>
-                    </td>
-                </tr>
+            <tr>
+                <td>{{ req_form.title }}</td>
+                <td>{{ req_form.submitted_by.username }}</td>
+                <td>{{ req_form.get_form_type_display }}</td>
+                <td>{{ req_form.submission_date|date:"d/m/Y H:i" }}</td>
+                <td>{{ req_form.get_status_display }}</td>
+                <td>{{ req_form.related_student.user.get_full_name|default:"-" }}</td>
+                <td>{{ req_form.related_student.current_class.name|default:"-" }}</td>
+                <td style="white-space: pre-line; max-width: 350px;">{{ req_form.content|linebreaksbr }}</td>
+                <td>
+                    <a href="{% url 'communications:department_respond_request' pk=req_form.pk %}">Xem/Phản hồi</a>
+                </td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
 {% else %}
-    <p>Không có đơn từ/kiến nghị nào cần xử lý cho phòng {{ department_name }} của bạn.</p>
+    <p>Không có đơn từ/kiến nghị nào gửi tới phòng ban này.</p>
 {% endif %}
 {% endblock %}
