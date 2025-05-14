@@ -34,13 +34,13 @@
             {% if user.role.name == 'TEACHER' %}
             <!--    <a href="{% url 'communications:teacher_request_list' %}">Đơn từ cho GV</a> -->
                 <a href="{% url 'communications:teacher_request_list' %}">Quản lý đơn từ</a>
-                <a href="{% url 'academic_records:enter_scores' %}">Nhập Điểm</a> {# <<--- LINK MỚI --- #}
-                <a href="{% url 'academic_records:teacher_view_class_scores' %}">Điểm Lớp CN</a> {# <<--- LINK MỚI --- #}
+            <!--    <a href="{% url 'academic_records:enter_scores' %}">Nhập Điểm</a> {# <<--- LINK MỚI --- #} -->
+                <a href="{% url 'academic_records:teacher_view_class_scores' %}">Quản lý điểm </a> {# <<--- LINK MỚI --- #}
                 {# Link cho Giáo viên Chủ nhiệm xem Khen thưởng/Kỷ luật của lớp mình #}
-                <a href="{% url 'academic_records:teacher_view_class_rewards_discipline' %}">KT/KL Lớp CN</a> 
+                <a href="{% url 'academic_records:teacher_view_class_rewards_discipline' %}">Khen thưởng - Kỷ luật</a> 
             <!--    {# Link cho Giáo viên tạo Khen thưởng/Kỷ luật #}
                  <a href="{% url 'academic_records:add_reward_discipline' %}">Tạo KT/KL (GV)</a>--> 
-                <a href="{% url 'academic_records:add_evaluation' %}">Nhận xét môn học </a> {# <<--- LINK NÀY --- #}
+            <!--    <a href="{% url 'academic_records:add_evaluation' %}">Nhận xét môn học </a> {# <<--- LINK NÀY --- #} -->
                 <a href="{% url 'academic_records:teacher_my_evaluations' %}">Đánh giá hạnh kiểm </a> {# <<--- LINK NÀY --- #}
              {% endif %}
             {# --- KẾT THÚC LINK MỚI --- #}

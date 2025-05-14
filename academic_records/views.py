@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
-from django.db.models import Q, Max
+from django.db.models import Q, Max, Case, When, Value, IntegerField
 from django.forms import modelformset_factory 
 from django.urls import reverse
 from collections import defaultdict
@@ -24,7 +24,7 @@ def view_scores(request):
     user = request.user
     context = {
         'page_title': 'Bảng điểm của bạn',
-        'scores_by_student_period_subject': {},
+        'scores_by_student_subject': {},
         'is_parent': False,
         'students_to_view': [],
         'error_message': None
@@ -55,16 +55,42 @@ def view_scores(request):
     else:
         context['error_message'] = "Chức năng này chỉ dành cho Học sinh và Phụ huynh."
 
-    scores_data_defaultdict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    scores_data_restructured = defaultdict(lambda: defaultdict(lambda: {'subject_name': '', 'teacher_names': '', 'scores': []}))
+
     if context['students_to_view']:
         student_profile_pks = [sp.pk for sp in context['students_to_view']]
-        scores_qs = Score.objects.filter(student_id__in=student_profile_pks).select_related('subject', 'student__user').order_by('student__user__username', 'academic_period', 'subject__name', 'exam_date')
+        scores_qs = Score.objects.filter(student_id__in=student_profile_pks)\
+            .select_related('subject', 'student__user')\
+            .prefetch_related('subject__teachers__user')\
+            .order_by('student__user__username', 'subject__name', 'exam_date', 'exam_type')
+
         for score_item in scores_qs:
             student_display_name = score_item.student.user.get_full_name() or score_item.student.user.username
-            period = score_item.academic_period or "Chưa xác định kỳ học"
-            subject_name = score_item.subject.name
-            scores_data_defaultdict[student_display_name][period][subject_name].append(score_item)
-    context['scores_by_student_period_subject'] = convert_defaultdict_to_dict(scores_data_defaultdict)
+            subject_obj = score_item.subject
+            subject_pk = subject_obj.pk
+
+            if not scores_data_restructured[student_display_name][subject_pk]['subject_name']:
+                scores_data_restructured[student_display_name][subject_pk]['subject_name'] = subject_obj.name
+                
+                teacher_names_list = []
+                for teacher_profile in subject_obj.teachers.all():
+                    teacher_user = teacher_profile.user
+                    teacher_name = teacher_user.get_full_name() or teacher_user.username
+                    teacher_names_list.append(teacher_name)
+                scores_data_restructured[student_display_name][subject_pk]['teacher_names'] = ", ".join(sorted(list(set(teacher_names_list)))) or "N/A"
+
+            scores_data_restructured[student_display_name][subject_pk]['scores'].append(score_item)
+            
+    final_scores_data = {}
+    for student_name, subject_map in scores_data_restructured.items():
+        final_scores_data[student_name] = {}
+        for subject_pk, data in subject_map.items():
+            final_scores_data[student_name][subject_pk] = {
+                'subject_name': data['subject_name'],
+                'teacher_names': data['teacher_names'],
+                'scores': data['scores']
+            }
+    context['scores_by_student_subject'] = final_scores_data
     return render(request, 'academic_records/view_scores.html', context)
 
 @login_required
@@ -83,19 +109,16 @@ def enter_scores(request):
     selected_subject_id = request.GET.get('subject')
     selected_exam_type = request.GET.get('exam_type')
     selected_exam_date = request.GET.get('exam_date')
-    selected_academic_period = request.GET.get('academic_period', "")
 
     if request.method == 'POST':
         post_selected_class_id = request.POST.get('selected_class_id_hidden')
         post_selected_subject_id = request.POST.get('selected_subject_id_hidden')
         post_selected_exam_type = request.POST.get('selected_exam_type_hidden')
         post_selected_exam_date = request.POST.get('selected_exam_date_hidden')
-        post_selected_academic_period = request.POST.get('selected_academic_period_hidden', "")
 
         score_context_form = ScoreContextForm(initial={
             'school_class': post_selected_class_id, 'subject': post_selected_subject_id,
             'exam_type': post_selected_exam_type, 'exam_date': post_selected_exam_date,
-            'academic_period': post_selected_academic_period
         }, teacher=teacher)
 
         if post_selected_class_id:
@@ -122,7 +145,6 @@ def enter_scores(request):
                         score_entry, created = Score.objects.update_or_create(
                             student=student_profile, subject=subject_instance,
                             exam_type=post_selected_exam_type, exam_date=post_selected_exam_date,
-                            academic_period=post_selected_academic_period,
                             defaults={'score_value': score_value, 'notes': notes}
                         )
                         if created: saved_count += 1
@@ -134,8 +156,7 @@ def enter_scores(request):
                 messages.info(request, "Không có thay đổi nào được thực hiện hoặc không có điểm nào được nhập.")
             
             redirect_url_params = (f"?school_class={post_selected_class_id}&subject={post_selected_subject_id}"
-                                   f"&exam_type={post_selected_exam_type}&exam_date={post_selected_exam_date}"
-                                   f"&academic_period={post_selected_academic_period}")
+                                   f"&exam_type={post_selected_exam_type}&exam_date={post_selected_exam_date}")
             return redirect(reverse('academic_records:enter_scores') + redirect_url_params)
         else:
             messages.error(request, "Vui lòng kiểm tra lại các lỗi trong bảng điểm.")
@@ -152,7 +173,6 @@ def enter_scores(request):
                 existing_score = Score.objects.filter(
                     student=student_profile, subject=target_subject,
                     exam_type=selected_exam_type, exam_date=selected_exam_date,
-                    academic_period=selected_academic_period
                 ).first()
                 initial_data_for_formset.append({
                     'student_id': student_profile.pk,
@@ -173,7 +193,6 @@ def enter_scores(request):
         'selected_subject_id': selected_subject_id,
         'selected_exam_type': selected_exam_type,
         'selected_exam_date': selected_exam_date,
-        'selected_academic_period': selected_academic_period,
         'page_title': 'Nhập Điểm cho Học sinh'
     }
     return render(request, 'academic_records/enter_scores.html', context)
@@ -442,32 +461,6 @@ def create_edit_evaluation(request, pk=None):
     }
     return render(request, 'academic_records/create_edit_evaluation.html', context)
 
-from django.shortcuts import render, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages # Có thể dùng để hiển thị thông báo nếu không có dữ liệu
-from django.core.exceptions import PermissionDenied
-# from django.utils import timezone # Không cần thiết cho view này
-from django.db.models import Q, Max # Q, Max có thể không cần thiết cho view này, nhưng để lại nếu các view khác dùng
-# from django.forms import modelformset_factory # Không cần thiết cho view này
-# from django.urls import reverse # Không cần thiết cho view này
-from collections import defaultdict
-# import json # Không cần thiết nếu convert_defaultdict_to_dict được dùng đúng
-
-from .models import Score, RewardAndDiscipline, Evaluation # Đảm bảo Evaluation được import
-from accounts.models import StudentProfile, ParentProfile, User, Role # User, Role có thể không cần trực tiếp ở đây
-# from school_data.models import Class as SchoolClass, Subject as SchoolSubject, Department # Không cần trực tiếp ở đây
-# from .forms import ScoreContextForm, ScoreEntryForm, RewardAndDisciplineForm, EvaluationForm # Không cần form cho view này
-
-def convert_defaultdict_to_dict(d):
-    """
-    Hàm đệ quy để chuyển đổi defaultdict (và các defaultdict lồng nhau) thành dict thông thường.
-    """
-    if isinstance(d, defaultdict):
-        return {k: convert_defaultdict_to_dict(v) for k, v in d.items()}
-    return d
-
-# ... (các views khác như view_scores, enter_scores, create_edit_evaluation, etc. đã có) ...
-
 @login_required
 def view_evaluations(request):
     user = request.user
@@ -533,24 +526,6 @@ def view_evaluations(request):
     
     return render(request, 'academic_records/view_evaluations.html', context)
 
-
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.core.exceptions import PermissionDenied
-from django.utils import timezone
-from django.db.models import Q, Max
-from django.forms import modelformset_factory 
-from django.urls import reverse
-from collections import defaultdict
-# import json # Không cần thiết nếu convert_defaultdict_to_dict được dùng đúng
-
-from .models import Score, RewardAndDiscipline, Evaluation 
-from accounts.models import StudentProfile, ParentProfile, User, Role
-from school_data.models import Class as SchoolClass, Subject as SchoolSubject, Department
-from .forms import ScoreContextForm, ScoreEntryForm, RewardAndDisciplineForm, EvaluationForm
-
 @login_required
 def teacher_my_evaluations(request):
     user = request.user
@@ -571,3 +546,134 @@ def teacher_my_evaluations(request):
         'page_title': 'Các Đánh giá/Nhận xét bạn đã tạo',
     }
     return render(request, 'academic_records/teacher_my_evaluations.html', context)
+
+@login_required
+def manage_scores_dashboard(request):
+    teacher = request.user
+    if not (hasattr(teacher, 'role') and teacher.role and teacher.role.name == 'TEACHER'):
+        raise PermissionDenied("Chức năng này chỉ dành cho Giáo viên.")
+
+    # Define the desired order of exam types
+    exam_type_order_keys = [
+        'ORAL_TEST', '15_MIN_TEST', '45_MIN_TEST',
+        'MID_TERM_1', 'END_TERM_1',
+        'MID_TERM_2', 'END_TERM_2',
+        'FINAL_EXAM'
+    ]
+    exam_type_when_conditions = []
+    for i, exam_type_key in enumerate(exam_type_order_keys):
+        exam_type_when_conditions.append(When(exam_type=exam_type_key, then=Value(i)))
+
+    context = {
+        'page_title': 'Quản lý Điểm',
+        'homeroom_classes_list': [],
+        'active_homeroom_class': None,
+        'homeroom_data': defaultdict(lambda: {
+            'teacher_name_display': "N/A", # Default
+            'students_map': defaultdict(lambda: {'scores': [], 'student_info': None})
+        }),
+        'taught_classes_data': defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {'scores': [], 'student_info': None}))),
+        'all_score_types_choices': Score.EXAM_TYPE_CHOICES,
+    }
+
+    # 1. Homeroom Class Data
+    homeroom_classes = SchoolClass.objects.filter(homeroom_teacher=teacher).order_by('name')
+    context['homeroom_classes_list'] = homeroom_classes
+    
+    selected_hr_class_pk = request.GET.get('homeroom_class_pk')
+    active_homeroom_class = None
+    if selected_hr_class_pk:
+        active_homeroom_class = get_object_or_404(SchoolClass, pk=selected_hr_class_pk, homeroom_teacher=teacher)
+    elif homeroom_classes.exists():
+        active_homeroom_class = homeroom_classes.first()
+    context['active_homeroom_class'] = active_homeroom_class
+
+    if active_homeroom_class:
+        students_in_hr = StudentProfile.objects.filter(current_class=active_homeroom_class).select_related('user').order_by('user__last_name', 'user__first_name')
+        all_subjects_for_hr_view = SchoolSubject.objects.all().order_by('name').prefetch_related('teachers__user') # User's preference
+
+        homeroom_teacher_user = active_homeroom_class.homeroom_teacher
+        homeroom_teacher_profile = None
+        if homeroom_teacher_user:
+            homeroom_teacher_profile = getattr(homeroom_teacher_user, 'teacher_profile', None)
+
+        for subj in all_subjects_for_hr_view: # Iterate over all subjects
+            display_teacher_names = []
+            # Check if homeroom teacher teaches this subject
+            if homeroom_teacher_profile and subj in homeroom_teacher_profile.subjects_taught.all():
+                display_teacher_names.append(homeroom_teacher_user.get_full_name() or homeroom_teacher_user.username)
+            else:
+                # If not taught by homeroom teacher, list other general teachers of the subject
+                for teacher_profile_obj in subj.teachers.all(): # These are TeacherProfile instances
+                    teacher_user = teacher_profile_obj.user
+                    teacher_name = teacher_user.get_full_name() or teacher_user.username
+                    display_teacher_names.append(teacher_name)
+            
+            # Use set to ensure unique names if a teacher falls into multiple categories (unlikely here but good practice)
+            unique_display_teacher_names = sorted(list(set(display_teacher_names)))
+            teacher_name_str = ", ".join(unique_display_teacher_names) if unique_display_teacher_names else "N/A"
+            
+            context['homeroom_data'][subj]['teacher_name_display'] = teacher_name_str
+            
+            for stud_profile in students_in_hr:
+                if not context['homeroom_data'][subj]['students_map'][stud_profile.pk]['student_info']:
+                    context['homeroom_data'][subj]['students_map'][stud_profile.pk]['student_info'] = stud_profile
+                
+                scores = (Score.objects.filter(student=stud_profile, subject=subj)
+                    .annotate(
+                        custom_exam_type_order=Case(
+                            *exam_type_when_conditions,
+                            default=Value(len(exam_type_order_keys)),
+                            output_field=IntegerField()
+                        )
+                    )
+                    .order_by('exam_date', 'custom_exam_type_order', 'exam_type'))
+                context['homeroom_data'][subj]['students_map'][stud_profile.pk]['scores'] = list(scores)
+
+    # 2. Taught Classes Data (không dùng teachers field)
+    teacher_profile_obj = getattr(teacher, 'teacher_profile', None)
+    subjects_personally_taught = teacher_profile_obj.subjects_taught.all().order_by('name') if teacher_profile_obj else SchoolSubject.objects.none()
+    # Lấy tất cả các lớp có học sinh học môn mà giáo viên này dạy, loại trừ lớp chủ nhiệm
+    taught_classes_qs = SchoolClass.objects.filter(
+        students__enrolled_subjects__in=subjects_personally_taught
+    ).exclude(homeroom_teacher=teacher).distinct().order_by('name')
+    for t_class in taught_classes_qs:
+        students_in_t_class = StudentProfile.objects.filter(current_class=t_class).select_related('user').order_by('user__last_name', 'user__first_name')
+        for subj_taught in subjects_personally_taught:
+            for stud_profile in students_in_t_class:
+                if not context['taught_classes_data'][t_class][subj_taught][stud_profile.pk]['student_info']:
+                    context['taught_classes_data'][t_class][subj_taught][stud_profile.pk]['student_info'] = stud_profile
+                scores = (Score.objects.filter(student=stud_profile, subject=subj_taught)
+                    .annotate(
+                        custom_exam_type_order=Case(
+                            *exam_type_when_conditions,
+                            default=Value(len(exam_type_order_keys)),
+                            output_field=IntegerField()
+                        )
+                    )
+                    .order_by('exam_date', 'custom_exam_type_order', 'exam_type'))
+                context['taught_classes_data'][t_class][subj_taught][stud_profile.pk]['scores'] = list(scores)
+
+    # Chuyển defaultdict thành dict thường để template dễ xử lý hơn
+    final_homeroom_data = {}
+    for subj_obj, data_dict in context['homeroom_data'].items():
+       final_homeroom_data[subj_obj] = {
+           'teacher_name_display': data_dict['teacher_name_display'],
+           'students_map': dict(data_dict['students_map']) # Convert inner defaultdict
+       }
+       # Ensure students_map's inner dicts are also plain dicts if necessary (they are already {'scores': [], 'student_info': None})
+       for student_pk, student_data in final_homeroom_data[subj_obj]['students_map'].items():
+           final_homeroom_data[subj_obj]['students_map'][student_pk] = dict(student_data)
+
+    context['homeroom_data'] = final_homeroom_data
+
+    final_taught_classes_data = {}
+    for class_obj, subject_map in context['taught_classes_data'].items():
+        final_taught_classes_data[class_obj] = {}
+        for subj, student_map_val in subject_map.items():
+            if any(s_data['scores'] or s_data['student_info'] for s_data in student_map_val.values()):
+                final_taught_classes_data[class_obj][subj] = dict(student_map_val)
+        if not final_taught_classes_data[class_obj]:
+            del final_taught_classes_data[class_obj]
+    context['taught_classes_data'] = final_taught_classes_data
+    return render(request, 'academic_records/teacher_view_class_scores.html', context)

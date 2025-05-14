@@ -7,7 +7,7 @@ urlpatterns = [
     # ... (các URL cho scores, rewards-discipline, add/edit evaluation, view_evaluations đã có) ...
     path('scores/', views.view_scores, name='view_scores'),
     path('enter-scores/', views.enter_scores, name='enter_scores'),
-    path('teacher/class-scores/', views.teacher_view_class_scores, name='teacher_view_class_scores'),
+    path('teacher/class-scores/', views.manage_scores_dashboard, name='teacher_view_class_scores'),
     
     path('rewards-discipline/', views.view_reward_discipline, name='view_reward_discipline'),
     path('teacher/class-rewards-discipline/', views.teacher_view_class_rewards_discipline, name='teacher_view_class_rewards_discipline'),

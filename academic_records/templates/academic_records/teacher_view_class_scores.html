@@ -5,110 +5,129 @@
 {% block content %}
 <h2>{{ page_title }}</h2>
 
+<div style="margin-bottom: 20px;">
+    <a href="{% url 'academic_records:enter_scores' %}" class="btn btn-primary" style="padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Nhập Điểm</a>
+</div>
+
 {% if messages %}
     {% for message in messages %}
         <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %}" role="alert"
              style="padding: 10px; margin-bottom: 15px; border: 1px solid transparent; border-radius: 4px;
-                    {% if message.tags == 'success' %}background-color: #d4edda; border-color: #c3e6cb; color: #155724;
-                    {% elif message.tags == 'error' %}background-color: #f8d7da; border-color: #f5c6cb; color: #721c24;
-                    {% elif message.tags == 'info' %}background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460;
-                    {% else %}background-color: #e2e3e5; border-color: #d6d8db; color: #383d41;{% endif %}">
+                    background-color: #e9ecef; color: #383d41;">
             {{ message }}
         </div>
     {% endfor %}
 {% endif %}
 
-{# Form chọn lớp nếu giáo viên chủ nhiệm nhiều lớp #}
-{% if homeroom_classes|length > 1 %}
-    <form method="get" action="{% url 'academic_records:teacher_view_class_scores' %}" class="mb-3 p-3 border rounded bg-light">
-        <label for="class_to_view_select" class="form-label">Chọn lớp chủ nhiệm để xem điểm:</label>
-        <select name="class_to_view" id="class_to_view_select" class="form-select form-control" onchange="this.form.submit()">
-            <option value="">--- Chọn Lớp ---</option>
-            {% for class_obj in homeroom_classes %}
-                <option value="{{ class_obj.pk }}" {% if active_class and active_class.pk == class_obj.pk %}selected{% endif %}>
-                    {{ class_obj.name }} ({{ class_obj.academic_year|default:"N/A" }})
-                </option>
-            {% endfor %}
-        </select>
-        {# Nút submit không cần thiết nếu dùng onchange="this.form.submit()" #}
-        {# <button type="submit" class="btn btn-sm btn-secondary mt-2">Xem Lớp</button> #}
-    </form>
-    <hr>
-{% endif %}
-
-{% if active_class %}
-    {% if not students_in_class %}
-        <p>Lớp {{ active_class.name }} hiện chưa có học sinh nào.</p>
-    {% elif not scores_by_student_period_subject %}
-        <p>Chưa có thông tin điểm số nào cho lớp {{ active_class.name }}.</p>
-    {% endif %}
-
-    {# Lặp qua dữ liệu điểm đã được tổ chức trong view #}
-    {% for student_name, periods_data in scores_by_student_period_subject.items %}
-        <h3 style="margin-top: 30px; border-bottom: 2px solid #007bff; padding-bottom: 5px; color: #0056b3;">
-            Học sinh: {{ student_name }}
-        </h3>
-
-        {% if not periods_data %}
-            <p>Chưa có điểm cho học sinh {{ student_name }}.</p>
-        {% else %}
-            {% for period_key, subjects_data in periods_data.items %}
-                <h4 style="margin-top: 20px; color: #343a40;">Kỳ học: {{ period_key }}</h4>
-                {% if not subjects_data %}
-                    <p>Chưa có điểm cho kỳ học này.</p>
-                {% else %}
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+<section id="homeroom-scores" style="margin-bottom: 30px;">
+    <h3>Điểm Lớp Chủ Nhiệm</h3>
+    {% if active_homeroom_class %}
+        <h4>Lớp: {{ active_homeroom_class.name }}</h4>
+        {% if homeroom_data %}
+            {% for subject, subject_details in homeroom_data.items %}
+                <div style="margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px;">
+                    <h5 style="color: #0056b3;">Môn học: {{ subject.name }} (GV: {{ subject_details.teacher_name_display }})</h5>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                         <thead>
                             <tr style="background-color: #f2f2f2;">
-                                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Môn học</th>
-                                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Loại Điểm/Ngày thi</th>
-                                <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Điểm số</th>
-                                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ghi chú</th>
+                                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">STT</th>
+                                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Học sinh</th>
+                                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ngày sinh</th>
+                                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Các loại điểm</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for subject_name_key, score_list_data in subjects_data.items %}
-                                {% for score_item_obj in score_list_data %}
-                                    <tr {% if forloop.parentloop.counter0|add:forloop.counter0|divisibleby:2 %}style="background-color: #f9f9f9;"{% endif %}>
-                                        {% if forloop.first %}
-                                            <td rowspan="{{ score_list_data|length }}" style="border: 1px solid #ddd; padding: 8px; vertical-align: top;">
-                                                <strong>{{ subject_name_key }}</strong>
-                                            </td>
-                                        {% endif %}
+                            {% for student_pk, student_data in subject_details.students_map.items %}
+                                {% with student_profile=student_data.student_info scores_list=student_data.scores %}
+                                    <tr {% if forloop.counter0|divisibleby:2 %}style="background-color: #f9f9f9;"{% endif %}>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">{{ forloop.counter }}</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">{{ student_profile.user.get_full_name|default:student_profile.user.username }}</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px;">{{ student_profile.date_of_birth|date:"d/m/Y"|default:"N/A" }}</td>
                                         <td style="border: 1px solid #ddd; padding: 8px;">
-                                            {{ score_item_obj.get_exam_type_display }} ({{ score_item_obj.exam_date|date:"d/m/Y" }})
+                                            {% for score_item in scores_list %}
+                                                <span style="margin-right:10px; display: inline-block; padding: 3px 5px; background-color: #e9ecef; border-radius:3px; margin-bottom:3px;">
+                                                    {{ score_item.get_exam_type_display }}: <strong>{{ score_item.score_value }}</strong>
+                                                </span>
+                                            {% empty %}
+                                                <span style="color: #777;">Chưa có điểm</span>
+                                            {% endfor %}
                                         </td>
-                                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center; font-weight: bold;">
-                                            {{ score_item_obj.score_value }}
-                                        </td>
-                                        <td style="border: 1px solid #ddd; padding: 8px;">{{ score_item_obj.notes|default:"" }}</td>
                                     </tr>
-                                {% empty %}
-                                    {# Có thể thêm nếu score_list_data rỗng #}
-                                {% endfor %}
+                                {% endwith %}
                             {% empty %}
-                                 {# Có thể thêm nếu subjects_data.items rỗng #}
+                                <tr><td colspan="4" style="padding: 10px; text-align: center;">Không có học sinh nào cho môn này.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
-                {% endif %}
+                </div>
             {% empty %}
-                 {# Có thể thêm nếu periods_data.items rỗng #}
+                <p>Không có môn học nào hoặc chưa có dữ liệu điểm cho lớp này.</p>
             {% endfor %}
+        {% else %}
+            <p>Không có dữ liệu điểm cho lớp chủ nhiệm này.</p>
         {% endif %}
-        <hr style="border-top: 1px solid #ccc; margin-top:20px;">
-    {% empty %}
-        {# Khối này sẽ chạy nếu scores_by_student_period_subject rỗng VÀ active_class đã được chọn #}
-        {% if active_class and students_in_class %} 
-             <p>Hiện chưa có thông tin điểm số nào cho các học sinh trong lớp {{ active_class.name }}.</p>
-        {% endif %}
-    {% endfor %}
+    {% else %}
+        <p>Bạn hiện không được phân công chủ nhiệm lớp nào.</p>
+    {% endif %}
+</section>
 
-{% elif homeroom_classes and not active_class %}
-    <p>Vui lòng chọn một lớp từ danh sách trên để xem điểm.</p>
-{% elif not homeroom_classes %}
-    {# Thông báo này đã được xử lý bằng messages trong view, nhưng để dự phòng #}
-    <p>Bạn hiện không được phân công chủ nhiệm lớp nào.</p>
-{% endif %}
+{# --- Phần Điểm Các Lớp Dạy --- #}
+<section id="taught-classes-scores" style="margin-top: 30px;">
+    <h3>Điểm Các Lớp Giảng Dạy</h3>
+    {% if taught_classes_data %}
+        {% for class_obj, subjects_map in taught_classes_data.items %}
+            <div style="margin-top: 20px; padding: 15px; border: 1px solid #007bff; border-radius: 8px; background-color: #f8f9fa;">
+                <h4 style="color: #007bff;">Lớp: {{ class_obj.name }} ({{ class_obj.academic_year|default:"N/A" }})</h4>
+                {% for subject, students_map in subjects_map.items %}
+                    <div style="margin-top: 15px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+                        <h5 style="color: #333;">Môn học: {{ subject.name }} (GV: {{ request.user.get_full_name|default:request.user.username }})</h5>
+                        {% if students_map %}
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                                <thead>
+                                    <tr style="background-color: #e9ecef;">
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">STT</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Học sinh</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ngày sinh</th>
+                                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Các loại điểm</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for student_pk, student_data in students_map.items %}
+                                        {% with student_profile=student_data.student_info scores_list=student_data.scores %}
+                                            {% if student_profile %}
+                                            <tr {% if forloop.counter0|divisibleby:2 %}style="background-color: #fdfdfe;"{% endif %}>
+                                                <td style="border: 1px solid #ddd; padding: 8px;">{{ forloop.counter }}</td>
+                                                <td style="border: 1px solid #ddd; padding: 8px;">{{ student_profile.user.get_full_name|default:student_profile.user.username }}</td>
+                                                <td style="border: 1px solid #ddd; padding: 8px;">{{ student_profile.date_of_birth|date:"d/m/Y"|default:"N/A" }}</td>
+                                                <td style="border: 1px solid #ddd; padding: 8px;">
+                                                    {% for score_item in scores_list %}
+                                                        <span style="margin-right:10px; display: inline-block; padding: 3px 5px; background-color: #e2e6ea; border-radius:3px; margin-bottom:3px;">
+                                                            {{ score_item.get_exam_type_display }}: <strong>{{ score_item.score_value }}</strong>
+                                                        </span>
+                                                    {% empty %}
+                                                        <span style="color: #777;">Chưa có điểm</span>
+                                                    {% endfor %}
+                                                </td>
+                                            </tr>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% empty %}
+                                        <tr><td colspan="4" style="padding: 10px; text-align: center;">Không có học sinh nào có điểm cho môn này trong lớp này.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                             <p style="margin-top: 5px; color: #555;">Không có dữ liệu điểm cho môn này trong lớp này.</p>
+                        {% endif %}
+                    </div>
+                {% empty %}
+                    <p style="margin-top: 5px; color: #555;">Không có môn học nào được chỉ định hoặc có điểm trong lớp này.</p>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Bạn hiện không được phân công giảng dạy ở lớp nào khác (ngoài lớp chủ nhiệm nếu có) hoặc chưa có dữ liệu điểm.</p>
+    {% endif %}
+</section>
 
 {% endblock %}

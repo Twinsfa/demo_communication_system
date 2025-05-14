@@ -9,76 +9,60 @@
     <p style="color: red;">Lỗi: {{ error_message }}</p>
 {% endif %}
 
-{% if not scores_by_student_period_subject and not error_message and not students_to_view %} 
+{% if not scores_by_student_subject and not error_message and not students_to_view %} 
     <p>Hiện chưa có thông tin điểm số nào được tìm thấy.</p> 
 {% endif %}
 
-{% for student_name, periods_data in scores_by_student_period_subject.items %}
-    <div> 
+{% for student_name, subjects_map in scores_by_student_subject.items %}
+    <div style="margin-bottom: 40px;">
         {% if students_to_view|length > 1 or is_parent %}
             <h3 style="margin-top: 30px; border-bottom: 2px solid #007bff; padding-bottom: 5px; color: #0056b3;">
                 Bảng điểm của Học sinh: {{ student_name }}
             </h3>
+        {% else %}
+             {# If only one student (the student themselves) is being viewed, no need for the sub-header #}
         {% endif %}
 
-        {% if not periods_data %}
-            <p>Chưa có điểm cho học sinh {{ student_name }}.</p>
+        {% if not subjects_map %}
+            <p style="margin-top:15px;">Chưa có điểm nào cho học sinh {{ student_name }}.</p>
         {% else %}
-            {% for period_key, subjects_data in periods_data.items %}
-                <div> 
-                    <h4 style="margin-top: 20px; color: #343a40;">Kỳ học: {{ period_key }}</h4>
-                    {% if not subjects_data %}
-                        <p>Chưa có điểm cho kỳ học này.</p>
-                    {% else %}
-                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                            <thead>
-                                <tr style="background-color: #f2f2f2;">
-                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Môn học</th>
-                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Loại Điểm/Ngày thi</th>
-                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Điểm số</th>
-                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ghi chú</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for subject_name_key, score_list_data in subjects_data.items %}
-                                    {% for score_item_obj in score_list_data %}
-                                        <tr {% if forloop.parentloop.counter0|add:forloop.counter0|divisibleby:2 %}style="background-color: #f9f9f9;"{% endif %}>
-                                            {% if forloop.first %}
-                                                <td rowspan="{{ score_list_data|length }}" style="border: 1px solid #ddd; padding: 8px; vertical-align: top;">
-                                                    <strong>{{ subject_name_key }}</strong>
-                                                </td>
-                                            {% endif %}
-                                            <td style="border: 1px solid #ddd; padding: 8px;">
-                                                {{ score_item_obj.get_exam_type_display }} ({{ score_item_obj.exam_date|date:"d/m/Y" }})
-                                            </td>
-                                            <td style="border: 1px solid #ddd; padding: 8px; text-align: center; font-weight: bold;">
-                                                {{ score_item_obj.score_value }}
-                                            </td>
-                                            <td style="border: 1px solid #ddd; padding: 8px;">{{ score_item_obj.notes|default:"" }}</td>
-                                        </tr>
-                                    {% empty %}
-                                        {# Có thể thêm thông báo nếu score_list_data rỗng, nhưng thường không cần thiết nếu subjects_data không rỗng #}
-                                    {% endfor %}
-                                {% empty %}
-                                     {# Có thể thêm thông báo nếu subjects_data.items rỗng #}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    {% endif %}
-                </div> 
-            {% empty %}
-                 {# Có thể thêm thông báo nếu periods_data.items rỗng #}
-            {% endfor %}
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px; border: 1px solid #ccc;">
+                <thead>
+                    <tr style="background-color: #e9ecef;">
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Môn học</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Giáo viên giảng dạy</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Loại điểm</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Điểm số</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ngày thi</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Nhận xét</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subject_pk, subject_data in subjects_map.items %}
+                        {% for score_item in subject_data.scores %}
+                            <tr {% if forloop.parentloop.counter0|add:forloop.counter0|divisibleby:2 %}style="background-color: #fdfdfe;"{% else %}style="background-color: #fff;"{% endif %}>
+                                <td style="border: 1px solid #ddd; padding: 8px;">{{ subject_data.subject_name }}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">{{ subject_data.teacher_names }}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">{{ score_item.get_exam_type_display }}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><strong>{{ score_item.score_value }}</strong></td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">{{ score_item.exam_date|date:"d/m/Y" }}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px;">{{ score_item.notes|default:"-" }}</td>
+                            </tr>
+                        {% endfor %}
+                    {% empty %}
+                        {# This inner empty would mean subjects_map has no subjects with scores, which should be caught by the outer subjects_map check #}
+                        {# If subjects_map itself is empty, the <p> above handles it. If it has subjects but all have empty scores_list, this ensures a message #}
+                        <tr>
+                            <td colspan="6" style="padding: 10px; text-align: center; color: #777;">Không có điểm nào được ghi nhận cho học sinh này.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         {% endif %}
-    </div> 
-    <hr style="border-top: 1px solid #ccc; margin-top:20px;">
+    </div>
 {% empty %}
-    {% if not error_message %}
-        {% if not students_to_view %}
-            <p>Không có thông tin học sinh để hiển thị điểm.</p>
-        {% elif students_to_view and not scores_by_student_period_subject %} 
-            <p>Hiện chưa có thông tin điểm số nào cho các học sinh được chỉ định.</p>
-        {% endif %}
+    {% if not error_message and students_to_view %}
+        <p>Không có dữ liệu điểm nào để hiển thị cho (các) học sinh đã chọn.</p>
     {% endif %}
 {% endfor %}
 

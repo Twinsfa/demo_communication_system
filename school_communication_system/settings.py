@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)8_-pyh=k9s29bm(9i_sgr-(u+*ls4yfw%#7_1bxcx@)#u7@7x'
+SECRET_KEY = 'django-insecure-)456745678_-pyh=k9s29bm(9i_sgr-(u+*ls4yfw%#7_1bxcx@)#u7@7x'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -82,7 +82,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'school_communication_db',  # Tên database bạn sẽ tạo
         'USER': 'root',                     # Hoặc người dùng bạn tạo riêng
-        'PASSWORD': 'admin123', # Mật khẩu root của bạn
+        'PASSWORD': '090810', # Mật khẩu root của bạn
         'HOST': '127.0.0.1',
         'PORT': '3306',
         'OPTIONS': {

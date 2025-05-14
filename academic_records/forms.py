@@ -31,13 +31,13 @@ class ScoreContextForm(forms.Form):
         widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         help_text="Chọn ngày thi hoặc ngày kiểm tra."
     )
-    academic_period = forms.CharField(
-        max_length=50,
-        required=False, 
-        label="Kỳ học/Năm học (VD: HK1 2024-2025)",
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'VD: HK1 2024-2025'}),
-        help_text="Để trống nếu không áp dụng cho kỳ học cụ thể."
-    )
+    # academic_period = forms.CharField(
+    #     max_length=50,
+    #     required=False, 
+    #     label="Kỳ học/Năm học (VD: HK1 2024-2025)",
+    #     widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'VD: HK1 2024-2025'}),
+    #     help_text="Để trống nếu không áp dụng cho kỳ học cụ thể."
+    # )
 
     def __init__(self, *args, **kwargs):
         teacher = kwargs.pop('teacher', None) 

@@ -38,11 +38,6 @@
             <label for="{{ score_context_form.exam_date.id_for_label }}">{{ score_context_form.exam_date.label }}</label>
             {{ score_context_form.exam_date }}
         </div>
-        <div>
-            <label for="{{ score_context_form.academic_period.id_for_label }}">{{ score_context_form.academic_period.label }}</label>
-            {{ score_context_form.academic_period }}
-            {% if score_context_form.academic_period.help_text %}<small class="form-text text-muted">{{ score_context_form.academic_period.help_text }}</small>{% endif %}
-        </div>
     </div>
     <button type="submit" name="load_students" class="btn btn-primary" style="background-color: #007bff; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;">
         Hiển thị Danh sách Học sinh
@@ -67,17 +62,7 @@
         {% empty %} {{ selected_exam_type|default:"Chưa chọn" }}
         {% endfor %}
         - Ngày: {{ selected_exam_date|default:"Chưa chọn" }} 
-        {% if selected_academic_period %}- Kỳ học: {{ selected_academic_period }}{% endif %}
     </p>
-
-    <p style="background-color: #ffc; padding: 5px; border: 1px solid #dda;">
-        <strong>DEBUG TEMPLATE - Score Formset Info:</strong><br>
-        Is score_formset defined? {% if score_formset %}YES{% else %}NO (or None){% endif %}<br>
-        Number of forms in score_formset (score_formset|length): {{ score_formset|length }} <br>
-        Number of forms via .forms (score_formset.forms|length): {{ score_formset.forms|length }} <br>
-        Management form: {{ score_formset.management_form }}
-    </p>
-
 
     <form method="post" action="{% url 'academic_records:enter_scores' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">
         {% csrf_token %}
@@ -87,7 +72,6 @@
         <input type="hidden" name="selected_subject_id_hidden" value="{{ selected_subject_id }}">
         <input type="hidden" name="selected_exam_type_hidden" value="{{ selected_exam_type }}">
         <input type="hidden" name="selected_exam_date_hidden" value="{{ selected_exam_date }}">
-        <input type="hidden" name="selected_academic_period_hidden" value="{{ selected_academic_period }}">
 
         <table style="width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px;">
             <thead>
