@@ -1,86 +1,71 @@
-# he-thong-thong-tin-lien-lac
+# School Communication & Information System
 
-## Hướng dẫn Cài đặt và Chạy Dự án
+## Overview
+This project is a comprehensive School Communication and Information System designed to streamline communication and information management between school administrators, teachers, students, and parents. The system provides a unified platform for notifications, evaluations, messaging, request forms, and more, supporting both academic and administrative workflows.
 
-Dưới đây là các bước để cài đặt và chạy dự án này trên máy tính của bạn.
+## Main Features
+- Notifications: Send and receive targeted notifications to/from departments, teachers, students, and parents. Flexible recipient selection by class, role, or individual.
+- Evaluations & Reviews: Teachers can create and manage student evaluations and subject reviews. Students and parents can view detailed feedback, including subject-specific comments.
+- Messaging: Secure, role-based direct messaging between teachers, departments, students, and parents. Department users can only message teachers and other departments.
+- Request Forms: Parents can submit various requests (leave, grade appeal, etc.) linked to their children. Automatic routing to homeroom teachers and relevant departments.
+- Reward & Discipline Management: Track and notify about student rewards and disciplinary actions.
+- Role-based Access: Distinct interfaces and permissions for administrators, teachers, department staff, students, and parents.
 
-**CẢNH BÁO BẢO MẬT:**
-Các thông tin cấu hình như `SECRET_KEY` và chi tiết kết nối cơ sở dữ liệu hiện đang được đặt trong file `school_communication_system/settings.py`. Khi bạn clone dự án này, bạn **PHẢI** thay đổi các giá trị này cho phù hợp với môi trường của bạn và đảm bảo an toàn. Đặc biệt, `SECRET_KEY` cần được thay thế bằng một giá trị mới, mạnh và bí mật.
+## Technology Stack
+- Backend: Django (Python)
+- Frontend: Django Templates, Bootstrap (customizable)
+- Database: MySQL (recommended), SQLite (for development)
+- Other: Django ORM, Django Messages Framework
 
-### Yêu cầu Tiên quyết:
+## Setup Instructions
+1. Clone the repository:
+   ```bash
+   git clone <your-repo-url>
+   cd <project-folder>
+   ```
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Configure the database:
+   - Edit `settings.py` for your database credentials (default is SQLite).
+5. Apply migrations:
+   ```bash
+   python manage.py migrate
+   ```
+6. Create a superuser:
+   ```bash
+   python manage.py createsuperuser
+   ```
+7. Run the development server:
+   ```bash
+   python manage.py runserver
+   ```
+8. Access the system:
+   - Visit [http://127.0.0.1:8000/](http://127.0.0.1:8000/) in your browser.
 
-* **Python:** Phiên bản 3.8 trở lên (khuyến nghị 3.10+).
-* **Pip:** Trình quản lý gói của Python.
-* **Git:** Hệ thống quản lý phiên bản.
-* **MySQL Server:** Cài đặt MySQL Server (ví dụ: 8.0) và một công cụ quản lý như MySQL Workbench. Nhớ mật khẩu `root` của MySQL.
+## Usage Guide
+- Admin Panel: Manage users, roles, classes, subjects, and departments via `/admin/`.
+- Teachers:
+  - Send notifications to classes, students, or parents.
+  - Add evaluations and subject reviews for students.
+  - View and manage class scores, rewards, and discipline records.
+- Departments:
+  - Send notifications to other departments, teachers, parents, or students (with restrictions).
+  - Respond to request forms submitted by parents.
+- Parents:
+  - Submit requests/forms for their children.
+  - View notifications, evaluations, and rewards/discipline records for their children.
+- Students:
+  - View personal notifications, evaluations, and academic records.
+- Messaging:
+  - Start direct conversations according to role-based permissions.
 
-### Các bước Cài đặt:
-
-1.  **Clone Repository:**
-    ```bash
-    git clone <URL_repository_GitHub_của_bạn>
-    cd <tên_thư_mục_repository_của_bạn>
-    ```
-
-2.  **Tạo và Kích hoạt Môi trường ảo:**
-    ```bash
-    python -m venv venv
-    # Windows:
-    venv\Scripts\activate
-    # macOS/Linux:
-    source venv/bin/activate
-    ```
-
-3.  **Cài đặt các Gói Phụ thuộc:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Thiết lập Cơ sở dữ liệu MySQL:**
-    * Mở MySQL Workbench.
-    * Kết nối đến MySQL Server của bạn.
-    * Tạo một database mới cho dự án, ví dụ `school_communication_db`:
-        ```sql
-        CREATE DATABASE school_communication_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-        ```
-    * **(Khuyến nghị)** Tạo một user MySQL riêng cho dự án:
-        ```sql
-        CREATE USER 'school_user'@'localhost' IDENTIFIED BY 'your_strong_password_here';
-        GRANT ALL PRIVILEGES ON school_communication_db.* TO 'school_user'@'localhost';
-        FLUSH PRIVILEGES;
-        ```
-        Thay thế bằng tên người dùng và mật khẩu bạn muốn.
-
-5.  **Cấu hình file `settings.py`:**
-    * Mở file `school_communication_system/settings.py` trong dự án bạn vừa clone.
-    * **Cập nhật `SECRET_KEY`:** Thay thế giá trị placeholder bằng một khóa bí mật mới, mạnh và ngẫu nhiên. Bạn có thể dùng các công cụ online để tạo hoặc tự tạo một chuỗi dài và phức tạp.
-    * **Cập nhật `DATABASES`:**
-        * `NAME`: Tên database bạn đã tạo (ví dụ: `school_communication_db`).
-        * `USER`: User MySQL bạn đã tạo (ví dụ: `school_user`) hoặc `root`.
-        * `PASSWORD`: Mật khẩu của user MySQL đó.
-        * `HOST`: Thường là `127.0.0.1`.
-        * `PORT`: Thường là `3306`.
-    * **Cập nhật `DEBUG`:** Đặt là `True` cho môi trường phát triển.
-
-6.  **Chạy Migrations:**
-    ```bash
-    python manage.py migrate
-    ```
-
-7.  **Tạo Superuser (Tài khoản Quản trị viên):**
-    ```bash
-    python manage.py createsuperuser
-    ```
-    Làm theo hướng dẫn để nhập username, email, và mật khẩu.
-
-8.  **Chạy Development Server:**
-    ```bash
-    python manage.py runserver
-    ```
-    Truy cập `http://127.0.0.1:8000/` trong trình duyệt.
-
-### Truy cập Trang Admin:
-
-* Truy cập `http://127.0.0.1:8000/admin/` và đăng nhập bằng tài khoản superuser.
-
----
+## Contribution & Support
+- Contributions: Pull requests are welcome! Please open an issue first to discuss major changes.
+- Contact: For questions or support, please contact the project maintainer or open an issue on GitHub.

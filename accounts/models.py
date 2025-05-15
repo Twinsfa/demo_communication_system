@@ -2,10 +2,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class Role(models.Model):
-    # Dựa trên ERD: role_id (PK - Django tự tạo), name, permission
-    # Chúng ta có thể đơn giản hóa 'permission' ban đầu, hoặc để sau
     ROLE_CHOICES = [
-        ('ADMIN', 'Quản trị viên Hệ thống (Admin)'), # Thường là từ Phòng CNTT
+        ('ADMIN', 'Quản trị viên Hệ thống (Admin)'), # Phòng CNTT
         ('SCHOOL_ADMIN', 'Quản lý Trường (Phòng Ban khác)'),
         ('TEACHER', 'Giáo viên'),
         ('PARENT', 'Phụ huynh'),
@@ -18,15 +16,9 @@ class Role(models.Model):
         return self.get_name_display() # Hiển thị tên đầy đủ của choice
 
 class User(AbstractUser):
-    # Kế thừa AbstractUser sẽ có sẵn: username, password, email, first_name, last_name, is_staff, is_active, is_superuser, date_joined, last_login
-    # Thêm các trường tùy chỉnh dựa trên ERD (USER: status) và liên kết với Role
-    # Trường 'status' có thể được quản lý bởi 'is_active' của AbstractUser hoặc thêm trường riêng nếu cần trạng thái phức tạp hơn.
 
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Vai trò")
-    # Các trường thông tin chung khác có thể có cho tất cả user nếu cần, ví dụ:
-    # phone_number = models.CharField(max_length=15, blank=True, null=True, verbose_name="Số điện thoại")
-    # avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name="Ảnh đại diện")
-    # --- THÊM TRƯỜNG MỚI Ở ĐÂY ---
+
     department = models.ForeignKey(
         'school_data.Department',
         on_delete=models.SET_NULL,
@@ -36,17 +28,10 @@ class User(AbstractUser):
         verbose_name="Phòng Ban Công tác (nếu có)"
     )
 
-    # Bạn có thể thêm các trường khác như 'status' nếu 'is_active' không đủ
-    # status = models.CharField(max_length=50, blank=True, null=True)
-
 
     def __str__(self):
         return self.username
     
-# ... (các import và model Role, User đã có ở trên) ...
-
-# ... (các import và model Role, User đã có ở trên) ...
-# from school_data.models import Subject # Hoặc dùng string 'school_data.Subject'
 
 class TeacherProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='teacher_profile')
@@ -107,7 +92,7 @@ class StudentProfile(models.Model):
         related_name='enrolled_students', # Từ một Subject, có thể truy cập ds học sinh: mon_hoc.enrolled_students.all()
         verbose_name="Các Môn học Đã đăng ký/Học"
     )
-    # --- KẾT THÚC PHẦN THÊM MỚI ---
+
 
     def __str__(self):
         return f"Hồ sơ Học sinh: {self.user.username}"
@@ -116,9 +101,6 @@ class ParentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='parent_profile')
     # ERD: address
     address = models.TextField(blank=True, null=True, verbose_name="Địa chỉ")
-    # phone_number (nếu khác với User.phone_number)
-    # email (nếu khác với User.email)
-    # Mối quan hệ với Student (một phụ huynh có thể có nhiều con) sẽ được xử lý sau.
 
     def __str__(self):
         return f"Hồ sơ Phụ huynh: {self.user.username}"

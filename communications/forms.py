@@ -96,7 +96,6 @@ class RequestFormSubmissionForm(forms.ModelForm):
         return instance
 
 
-# --- ĐẢM BẢO LỚP NÀY ĐÃ CÓ TRONG FILE communications/forms.py ---
 class RequestFormResponseForm(forms.ModelForm):
     class Meta:
         model = RequestForm
@@ -121,7 +120,7 @@ class RequestFormResponseForm(forms.ModelForm):
         self.fields['status'].choices = [choice for choice in allowed_statuses if choice[0] in dict(RequestForm.STATUS_CHOICES).keys()]
         if self.instance and self.instance.pk and self.instance.status == 'SUBMITTED':
              self.fields['status'].initial = 'PROCESSING'
-# --- KẾT THÚC ĐỊNH NGHĨA RequestFormResponseForm ---
+
 
 from django import forms
 from .models import RequestForm, Message # Thêm Message vào import
@@ -129,7 +128,7 @@ from accounts.models import StudentProfile, User
 from school_data.models import Department
 
 class RequestFormSubmissionForm(forms.ModelForm):
-    # ... (code của RequestFormSubmissionForm đã có) ...
+
     related_student_for_parent = forms.ModelChoiceField(
         queryset=StudentProfile.objects.none(), 
         required=False,
@@ -214,7 +213,7 @@ class RequestFormSubmissionForm(forms.ModelForm):
         return cleaned_data
 
 class RequestFormResponseForm(forms.ModelForm):
-    # ... (code của RequestFormResponseForm đã có) ...
+
     class Meta:
         model = RequestForm
         fields = ['status', 'response_content']
@@ -242,7 +241,7 @@ class RequestFormResponseForm(forms.ModelForm):
              self.fields['status'].initial = 'PROCESSING'
 
 
-# --- FORM MỚI CHO TIN NHẮN ---
+
 class MessageForm(forms.ModelForm):
     class Meta:
         model = Message
@@ -257,17 +256,15 @@ class MessageForm(forms.ModelForm):
         labels = {
             'content': '' # Không cần label nếu placeholder đã rõ ràng
         }
-# --- KẾT THÚC FORM MỚI ---
+
 from django import forms
 from .models import RequestForm, Message, Conversation # Thêm Conversation
 from accounts.models import StudentProfile, User 
 from school_data.models import Department
 
-# ... (RequestFormSubmissionForm, RequestFormResponseForm, MessageForm đã có ở trên) ...
 
 class StartConversationForm(forms.Form):
-    # Trường để chọn người dùng muốn chat cùng
-    # Chúng ta sẽ loại trừ chính người dùng hiện tại khỏi danh sách lựa chọn
+
     recipient = forms.ModelChoiceField(
         queryset=User.objects.none(), # Sẽ được cập nhật trong __init__
         label="Trò chuyện với",
@@ -292,14 +289,14 @@ class StartConversationForm(forms.Form):
             # 1. Giáo viên: gửi tới tất cả user (trừ admin)
             if role_name == 'TEACHER':
                 self.fields['recipient'].queryset = base_qs.exclude(role__name='ADMIN')
-            # 2. Phòng ban: gửi tới user phòng ban khác và giáo viên
+            # 2. Phòng ban: chỉ gửi tới giáo viên và phòng ban khác (không bao giờ có phụ huynh/học sinh)
             elif role_name == 'DEPARTMENT':
                 my_department_id = getattr(requesting_user.department, 'id', None) if hasattr(requesting_user, 'department') and requesting_user.department else None
                 self.fields['recipient'].queryset = base_qs.filter(
                     (
                         models.Q(is_staff=True, department__isnull=False) & ~models.Q(department__id=my_department_id)
                     ) | models.Q(role__name='TEACHER')
-                ).exclude(role__name__in=['PARENT', 'STUDENT'])
+                ).filter(is_staff=True).exclude(role__name__in=['PARENT', 'STUDENT'])
             # 3. Phụ huynh: gửi tới giáo viên chủ nhiệm, giáo viên dạy con, phụ huynh cùng lớp
             elif role_name == 'PARENT':
                 try:
@@ -350,55 +347,51 @@ from .models import Notification, Message, Conversation, RequestForm # Đảm b�
 from accounts.models import User, Role, StudentProfile # Import Role
 from school_data.models import Department, Class as SchoolClass # Import Class
 
-# ... (các form khác đã có) ...
 
-class NotificationForm(forms.ModelForm):
-    # Trường lựa chọn nhóm đối tượng chung
-    RECIPIENT_GROUP_CHOICES = [
-        ('', '--- Chọn nhóm chung (tùy chọn) ---'),
-        ('ALL_TEACHERS', 'Tất cả Giáo viên'),
-        ('ALL_PARENTS', 'Tất cả Phụ huynh'),
-        ('ALL_STUDENTS', 'Tất cả Học sinh'),
-        # ('EVERYONE', 'Tất cả mọi người trong trường'), # Cân nhắc kỹ logic cho lựa chọn này
-    ]
-    recipient_group = forms.ChoiceField(
-        choices=RECIPIENT_GROUP_CHOICES,
+class TeacherNotificationForm(forms.ModelForm):
+    # Gửi đến phòng ban (3 phòng)
+    target_departments = forms.ModelMultipleChoiceField(
+        queryset=Department.objects.filter(name__in=["Phòng giáo vụ", "Phòng Hành chính", "Phòng Tài chính"]).order_by('name'),
+        widget=forms.CheckboxSelectMultiple,
         required=False,
-        label="Gửi đến nhóm chung",
-        widget=forms.Select(attrs={'class': 'form-control mb-2'})
+        label="Gửi đến Phòng ban"
     )
-
-    # Trường chọn nhiều vai trò cụ thể (ngoài các nhóm chung ở trên)
-    target_roles = forms.ModelMultipleChoiceField(
-        queryset=Role.objects.all().order_by('name'),
-        widget=forms.CheckboxSelectMultiple, # Hoặc SelectMultiple(attrs={'class': 'form-control select2-multiple', 'size':'3'})
+    # Gửi đến phụ huynh theo lớp
+    target_parents_homeroom = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
         required=False,
-        label="Hoặc/Và chọn các Vai trò cụ thể",
-        help_text="Giữ Ctrl (hoặc Command trên Mac) để chọn nhiều."
+        label="Phụ huynh lớp chủ nhiệm"
     )
-
-    # Trường chọn nhiều lớp học cụ thể
-    target_classes = forms.ModelMultipleChoiceField(
-        queryset=SchoolClass.objects.all().order_by('name'),
-        widget=forms.CheckboxSelectMultiple, # Hoặc SelectMultiple
+    target_parents_taught = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
         required=False,
-        label="Hoặc/Và chọn các Lớp học cụ thể",
-        help_text="Giữ Ctrl (hoặc Command trên Mac) để chọn nhiều."
+        label="Phụ huynh các lớp giảng dạy"
     )
-    
-    # Trường chọn nhiều người dùng cụ thể
+    # Gửi đến học sinh theo lớp
+    target_students_homeroom = forms.ModelMultipleChoiceField(
+        queryset=StudentProfile.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Học sinh lớp chủ nhiệm"
+    )
+    target_students_taught = forms.ModelMultipleChoiceField(
+        queryset=StudentProfile.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Học sinh các lớp giảng dạy"
+    )
+    # Gửi đến người dùng cụ thể (phụ huynh, học sinh của các lớp trên)
     target_users = forms.ModelMultipleChoiceField(
-        queryset=User.objects.filter(is_active=True).order_by('username'),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control select2-multiple-users', 'size':'5'}), # Cần JS cho select2
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
         required=False,
-        label="Hoặc/Và chọn Người dùng cụ thể",
-        help_text="Giữ Ctrl (hoặc Command trên Mac) để chọn nhiều. Bạn có thể tìm kiếm nếu dùng widget nâng cao."
+        label="Người dùng cụ thể (phụ huynh, học sinh các lớp)"
     )
-
     class Meta:
         model = Notification
-        fields = ['title', 'content', 'recipient_group', 'target_roles', 'target_classes', 'target_users']
-        # Các trường 'sent_by', 'status', 'publish_time', 'is_published' sẽ được xử lý trong view.
+        fields = ['title', 'content']
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nhập tiêu đề thông báo...'}),
             'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 7, 'placeholder': 'Nhập nội dung thông báo...'}),
@@ -407,17 +400,98 @@ class NotificationForm(forms.ModelForm):
             'title': 'Tiêu đề Thông báo',
             'content': 'Nội dung chi tiết',
         }
-
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        # Tùy chỉnh label_from_instance cho các trường ModelMultipleChoiceField nếu cần
-        self.fields['target_roles'].label_from_instance = lambda obj: obj.get_name_display()
-        self.fields['target_classes'].label_from_instance = lambda obj: f"{obj.name} ({obj.academic_year or 'N/A'})"
+        if user and hasattr(user, 'role') and user.role and user.role.name == 'TEACHER':
+            # Lớp chủ nhiệm
+            homeroom_classes = SchoolClass.objects.filter(homeroom_teacher=user)
+            # Lớp dạy
+            taught_classes = SchoolClass.objects.filter(students__enrolled_subjects__in=user.teacher_profile.subjects_taught.all()).distinct()
+            # Phụ huynh/học sinh lớp chủ nhiệm
+            self.fields['target_parents_homeroom'].queryset = User.objects.filter(parent_profile__children__current_class__in=homeroom_classes).distinct().order_by('last_name', 'first_name')
+            self.fields['target_students_homeroom'].queryset = StudentProfile.objects.filter(current_class__in=homeroom_classes).select_related('user').order_by('user__last_name', 'user__first_name')
+            # Phụ huynh/học sinh các lớp dạy
+            self.fields['target_parents_taught'].queryset = User.objects.filter(parent_profile__children__current_class__in=taught_classes).distinct().order_by('last_name', 'first_name')
+            self.fields['target_students_taught'].queryset = StudentProfile.objects.filter(current_class__in=taught_classes).select_related('user').order_by('user__last_name', 'user__first_name')
+            # Người dùng cụ thể: phụ huynh, học sinh của các lớp trên
+            self.fields['target_users'].queryset = User.objects.filter(
+                models.Q(parent_profile__children__current_class__in=homeroom_classes) |
+                models.Q(parent_profile__children__current_class__in=taught_classes) |
+                models.Q(student_profile__current_class__in=homeroom_classes) |
+                models.Q(student_profile__current_class__in=taught_classes)
+            ).distinct().order_by('last_name', 'first_name')
+        self.fields['target_parents_homeroom'].label_from_instance = lambda obj: obj.get_full_name() or obj.username
+        self.fields['target_parents_taught'].label_from_instance = lambda obj: obj.get_full_name() or obj.username
+        self.fields['target_students_homeroom'].label_from_instance = lambda obj: obj.user.get_full_name() or obj.user.username
+        self.fields['target_students_taught'].label_from_instance = lambda obj: obj.user.get_full_name() or obj.user.username
         self.fields['target_users'].label_from_instance = lambda obj: obj.get_full_name() or obj.username
-        
-        # Gợi ý: Để widget SelectMultiple cho target_users thân thiện hơn khi có nhiều user,
-        # bạn có thể dùng các thư viện như django-select2 hoặc tự viết widget với tìm kiếm.
-        # Hiện tại, nó sẽ là một danh sách dài.
+
+class DepartmentNotificationForm(forms.ModelForm):
+    # Gửi đến phòng ban (trừ phòng mình)
+    target_departments = forms.ModelMultipleChoiceField(
+        queryset=Department.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Gửi đến Phòng ban khác"
+    )
+    # Gửi đến giáo viên toàn trường
+    target_teachers = forms.ModelMultipleChoiceField(
+        queryset=User.objects.filter(role__name='TEACHER', is_active=True).order_by('last_name', 'first_name'),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Gửi đến Giáo viên toàn trường"
+    )
+    # Gửi đến phụ huynh theo lớp
+    target_parents_by_class = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Phụ huynh theo lớp"
+    )
+    # Gửi đến học sinh theo lớp
+    target_students_by_class = forms.ModelMultipleChoiceField(
+        queryset=StudentProfile.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Học sinh theo lớp"
+    )
+    # Gửi đến người dùng cụ thể (giáo viên, phụ huynh, học sinh toàn trường)
+    target_users = forms.ModelMultipleChoiceField(
+        queryset=User.objects.filter(
+            models.Q(role__name='TEACHER') |
+            models.Q(parent_profile__children__isnull=False) |
+            models.Q(student_profile__isnull=False)
+        ).distinct().order_by('last_name', 'first_name'),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Người dùng cụ thể (giáo viên, phụ huynh, học sinh)"
+    )
+    class Meta:
+        model = Notification
+        fields = ['title', 'content']
+        widgets = {
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nhập tiêu đề thông báo...'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 7, 'placeholder': 'Nhập nội dung thông báo...'}),
+        }
+        labels = {
+            'title': 'Tiêu đề Thông báo',
+            'content': 'Nội dung chi tiết',
+        }
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        # Phòng ban khác (trừ phòng mình)
+        if user and user.is_staff and hasattr(user, 'department') and user.department:
+            self.fields['target_departments'].queryset = Department.objects.exclude(pk=user.department.pk).order_by('name')
+        # Phụ huynh/học sinh theo lớp
+        self.fields['target_parents_by_class'].queryset = User.objects.filter(parent_profile__children__current_class__isnull=False).distinct().order_by('last_name', 'first_name')
+        self.fields['target_students_by_class'].queryset = StudentProfile.objects.filter(current_class__isnull=False).select_related('user').order_by('user__last_name', 'user__first_name')
+        self.fields['target_parents_by_class'].label_from_instance = lambda obj: obj.get_full_name() or obj.username
+        self.fields['target_students_by_class'].label_from_instance = lambda obj: obj.user.get_full_name() or obj.user.username
+        self.fields['target_teachers'].label_from_instance = lambda obj: obj.get_full_name() or obj.username
+        self.fields['target_users'].label_from_instance = lambda obj: obj.get_full_name() or obj.username
+
 
     def clean(self):
         cleaned_data = super().clean()

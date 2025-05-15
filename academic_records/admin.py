@@ -71,14 +71,13 @@ class EvaluationAdmin(admin.ModelAdmin):
         'subject__name',
         'content'
     )
-    # Thay đổi ở đây:
-    raw_id_fields = ('student', 'subject') # Sử dụng raw_id_fields cho student và cả subject nếu muốn
+
+    raw_id_fields = ('student', 'subject') 
     autocomplete_fields = ['evaluator'] # Giữ autocomplete cho evaluator
     date_hierarchy = 'evaluation_date'
-    # raw_id_fields = ('student', 'evaluator', 'subject') # Hoặc dùng raw_id_fields cho tất cả nếu muốn
+
 
     def student_name(self, obj):
-        # ... (phần còn lại của lớp giữ nguyên) ...
         return obj.student.user.get_full_name() if obj.student.user.get_full_name() else obj.student.user.username
     student_name.short_description = 'Học sinh'
 

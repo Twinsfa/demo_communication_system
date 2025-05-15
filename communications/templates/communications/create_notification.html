@@ -7,74 +7,72 @@
 
 {% if messages %}
     {% for message in messages %}
-        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %}" role="alert"
-             style="padding: 10px; margin-bottom: 15px; border: 1px solid transparent; border-radius: 4px;
-                    {% if message.tags == 'success' %}background-color: #d4edda; border-color: #c3e6cb; color: #155724;
-                    {% elif message.tags == 'error' %}background-color: #f8d7da; border-color: #f5c6cb; color: #721c24;
-                    {% else %}background-color: #e2e3e5; border-color: #d6d8db; color: #383d41;{% endif %}">
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %}" role="alert">
             {{ message }}
         </div>
     {% endfor %}
 {% endif %}
 
-<form method="post" novalidate>
+<form method="post" class="p-3 border rounded bg-light">
     {% csrf_token %}
-    
-    {{ form.non_field_errors }} {# Hiển thị lỗi chung của form (ví dụ: từ clean() của form) #}
-
-    <div style="margin-bottom: 15px;">
-        <label for="{{ form.title.id_for_label }}">{{ form.title.label }}:</label><br>
+    <div class="mb-3">
+        {{ form.title.label_tag }}
         {{ form.title }}
-        {% if form.title.help_text %}<small style="color: grey; display: block;">{{ form.title.help_text }}</small>{% endif %}
-        {% for error in form.title.errors %}<p style="color: red; font-size: 0.9em;">{{ error }}</p>{% endfor %}
+        {% if form.title.errors %}<div class="text-danger">{{ form.title.errors }}</div>{% endif %}
     </div>
-
-    <div style="margin-bottom: 15px;">
-        <label for="{{ form.content.id_for_label }}">{{ form.content.label }}:</label><br>
+    <div class="mb-3">
+        {{ form.content.label_tag }}
         {{ form.content }}
-        {% if form.content.help_text %}<small style="color: grey; display: block;">{{ form.content.help_text }}</small>{% endif %}
-        {% for error in form.content.errors %}<p style="color: red; font-size: 0.9em;">{{ error }}</p>{% endfor %}
+        {% if form.content.errors %}<div class="text-danger">{{ form.content.errors }}</div>{% endif %}
     </div>
-
-    <hr style="margin: 20px 0;">
-    <h4>Chọn Đối tượng nhận Thông báo:</h4>
-    <p><small><em>Bạn có thể chọn một nhóm chung và/hoặc các vai trò, lớp, người dùng cụ thể.</em></small></p>
-
-
-    <div style="margin-bottom: 15px;">
-        <label for="{{ form.recipient_group.id_for_label }}">{{ form.recipient_group.label }}:</label><br>
-        {{ form.recipient_group }}
-        {% if form.recipient_group.help_text %}<small style="color: grey; display: block;">{{ form.recipient_group.help_text }}</small>{% endif %}
-        {% for error in form.recipient_group.errors %}<p style="color: red; font-size: 0.9em;">{{ error }}</p>{% endfor %}
+    <hr>
+    <h5>Chọn đối tượng nhận thông báo:</h5>
+    <div class="mb-3">
+        <strong>{{ form.target_departments.label }}</strong><br>
+        {{ form.target_departments }}
+        {% if form.target_departments.errors %}<div class="text-danger">{{ form.target_departments.errors }}</div>{% endif %}
     </div>
-    
-    <div style="margin-bottom: 15px; padding:10px; border:1px solid #eee; border-radius:5px;">
-        <label>{{ form.target_roles.label }}:</label><br>
-        <div style="max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;">
-            {{ form.target_roles }}
-        </div>
-        {% if form.target_roles.help_text %}<small style="color: grey; display: block;">{{ form.target_roles.help_text }}</small>{% endif %}
-        {% for error in form.target_roles.errors %}<p style="color: red; font-size: 0.9em;">{{ error }}</p>{% endfor %}
+    {% if form.target_teachers %}
+    <div class="mb-3">
+        <strong>{{ form.target_teachers.label }}</strong><br>
+        <label><input type="checkbox" name="send_to_all_teachers"> Gửi tới toàn bộ giáo viên</label>
+        {% if form.target_teachers.errors %}<div class="text-danger">{{ form.target_teachers.errors }}</div>{% endif %}
     </div>
-
-    <div style="margin-bottom: 15px; padding:10px; border:1px solid #eee; border-radius:5px;">
-        <label>{{ form.target_classes.label }}:</label><br>
-        <div style="max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 5px;">
-            {{ form.target_classes }}
-        </div>
-        {% if form.target_classes.help_text %}<small style="color: grey; display: block;">{{ form.target_classes.help_text }}</small>{% endif %}
-        {% for error in form.target_classes.errors %}<p style="color: red; font-size: 0.9em;">{{ error }}</p>{% endfor %}
+    {% endif %}
+    {% if class_list_homeroom %}
+    <div class="mb-3">
+        <strong>Phụ huynh/Học sinh lớp chủ nhiệm:</strong><br>
+        {% for class_obj in class_list_homeroom %}
+            <label><input type="checkbox" name="send_to_parents_homeroom_{{ class_obj.pk }}"> Phụ huynh lớp {{ class_obj.name }}</label><br>
+            <label><input type="checkbox" name="send_to_students_homeroom_{{ class_obj.pk }}"> Học sinh lớp {{ class_obj.name }}</label><br>
+        {% endfor %}
     </div>
-
-    <div style="margin-bottom: 15px;">
-        <label for="{{ form.target_users.id_for_label }}">{{ form.target_users.label }}:</label><br>
+    {% endif %}
+    {% if class_list_taught %}
+    <div class="mb-3">
+        <strong>Phụ huynh/Học sinh các lớp giảng dạy:</strong><br>
+        {% for class_obj in class_list_taught %}
+            <label><input type="checkbox" name="send_to_parents_taught_{{ class_obj.pk }}"> Phụ huynh lớp {{ class_obj.name }}</label><br>
+            <label><input type="checkbox" name="send_to_students_taught_{{ class_obj.pk }}"> Học sinh lớp {{ class_obj.name }}</label><br>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if class_list_all %}
+    <div class="mb-3">
+        <strong>Phụ huynh/Học sinh theo lớp:</strong><br>
+        {% for class_obj in class_list_all %}
+            <label><input type="checkbox" name="send_to_parents_by_class_{{ class_obj.pk }}"> Phụ huynh lớp {{ class_obj.name }}</label><br>
+            <label><input type="checkbox" name="send_to_students_by_class_{{ class_obj.pk }}"> Học sinh lớp {{ class_obj.name }}</label><br>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if form.target_users %}
+    <div class="mb-3">
+        <strong>{{ form.target_users.label }}</strong><br>
         {{ form.target_users }}
-        {% if form.target_users.help_text %}<small style="color: grey; display: block;">{{ form.target_users.help_text }}</small>{% endif %}
-        {% for error in form.target_users.errors %}<p style="color: red; font-size: 0.9em;">{{ error }}</p>{% endfor %}
+        {% if form.target_users.errors %}<div class="text-danger">{{ form.target_users.errors }}</div>{% endif %}
     </div>
-
-    <button type="submit" style="background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Tạo và Gửi Thông báo</button>
-    <a href="{% url 'communications:notification_list' %}" style="margin-left: 10px; color: #6c757d; text-decoration: none;">Hủy</a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary">Gửi thông báo</button>
 </form>
-
 {% endblock %}

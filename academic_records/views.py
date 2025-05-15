@@ -12,7 +12,7 @@ import json
 from .models import Score, RewardAndDiscipline, Evaluation # Đảm bảo Evaluation được import
 from accounts.models import StudentProfile, ParentProfile, User, Role
 from school_data.models import Class as SchoolClass, Subject as SchoolSubject, Department
-from .forms import ScoreContextForm, ScoreEntryForm, RewardAndDisciplineForm, EvaluationForm # Đảm bảo EvaluationForm được import
+from .forms import ScoreContextForm, ScoreEntryForm, RewardAndDisciplineForm, EvaluationForm, EvaluationSubjectReviewForm # Đảm bảo EvaluationForm được import
 from communications.models import Notification
 
 def convert_defaultdict_to_dict(d):
@@ -437,12 +437,10 @@ def create_edit_evaluation(request, pk=None):
     allowed_roles = ['TEACHER', 'SCHOOL_ADMIN', 'ADMIN']
     user_role_name = getattr(user.role, 'name', None) if hasattr(user, 'role') else None
 
-    # Lấy loại đánh giá từ query param nếu có
     eval_type = request.GET.get('type')
     selected_class_id = request.GET.get('class_id')
     taught_classes = None
     if eval_type == 'SUBJECT_REVIEW' and hasattr(user, 'teacher_profile'):
-        # Lấy các lớp mà giáo viên này giảng dạy (có học sinh học môn mà giáo viên này dạy)
         subjects_taught = user.teacher_profile.subjects_taught.all()
         taught_classes = SchoolClass.objects.filter(students__enrolled_subjects__in=subjects_taught).distinct().order_by('name')
 
@@ -459,32 +457,39 @@ def create_edit_evaluation(request, pk=None):
         if instance.evaluator != user and not (user_role_name in ['SCHOOL_ADMIN', 'ADMIN'] and user.is_staff):
             raise PermissionDenied("Bạn không có quyền sửa đánh giá này.")
 
-    # Xử lý POST
-    if request.method == 'POST':
-        form = EvaluationForm(request.POST, instance=instance, requesting_user=user, eval_type=eval_type, selected_class_id=selected_class_id)
-        if form.is_valid():
-            evaluation = form.save(commit=False)
-            is_new = not evaluation.pk
-            if is_new:
-                evaluation.evaluator = user
-            evaluation.evaluation_date = timezone.now()
-            evaluation.save()
-            form.save_m2m()
-            messages.success(request, f"Đã {'cập nhật' if pk else 'tạo mới'} đánh giá/nhận xét thành công.")
-            # Gửi thông báo khi tạo mới (giữ nguyên như trước)
-            if is_new:
+    # Nhận xét môn học: chọn lớp -> chọn học sinh -> nhận xét
+    if eval_type == 'SUBJECT_REVIEW':
+        if not selected_class_id:
+            # Bước 1: chỉ chọn lớp
+            context = {
+                'form': None,
+                'page_title': f"{'Chỉnh sửa' if pk else 'Tạo mới'} Nhận xét môn học",
+                'evaluation_instance': instance,
+                'eval_type': eval_type,
+                'taught_classes': taught_classes,
+                'selected_class_id': None,
+            }
+            return render(request, 'academic_records/create_edit_evaluation.html', context)
+        # Đã chọn lớp, render form chọn học sinh, môn học và nhận xét
+        if request.method == 'POST':
+            form = EvaluationSubjectReviewForm(request.POST, instance=instance, selected_class_id=selected_class_id, requesting_user=user)
+            if form.is_valid():
+                evaluation = form.save(commit=False)
+                is_new = not evaluation.pk
+                if is_new:
+                    evaluation.evaluator = user
+                    evaluation.evaluation_type = 'SUBJECT_REVIEW'
+                evaluation.evaluation_date = timezone.now()
+                evaluation.save()
+                form.save_m2m()
+                messages.success(request, f"Đã {'cập nhật' if pk else 'tạo mới'} nhận xét môn học thành công.")
+                # Gửi thông báo như cũ...
                 student = evaluation.student
                 student_user = student.user
                 parent_profile = getattr(student, 'parent', None)
                 parent_user = parent_profile.user if parent_profile else None
-                eval_type_display = evaluation.get_evaluation_type_display()
-                subject_name = evaluation.subject.name if evaluation.subject else ""
-                if evaluation.evaluation_type == 'SUBJECT_REVIEW':
-                    content = f"Nhà trường xin thông báo về nhận xét môn học {subject_name} cho học sinh {student_user.get_full_name() or student_user.username}: {evaluation.content}"
-                    title = f"Nhận xét môn {subject_name} cho học sinh {student_user.get_full_name() or student_user.username}"
-                else:
-                    content = f"Nhà trường xin thông báo về đánh giá {eval_type_display} của học sinh {student_user.get_full_name() or student_user.username}: {evaluation.content}"
-                    title = f"Đánh giá {eval_type_display} cho học sinh {student_user.get_full_name() or student_user.username}"
+                content = f"Nhà trường xin thông báo về nhận xét môn học cho học sinh {student_user.get_full_name() or student_user.username} (Môn: {evaluation.subject.name if evaluation.subject else ''}): {evaluation.content}"
+                title = f"Nhận xét môn học cho học sinh {student_user.get_full_name() or student_user.username} (Môn: {evaluation.subject.name if evaluation.subject else ''})"
                 notification = Notification.objects.create(
                     title=title,
                     content=content,
@@ -496,21 +501,63 @@ def create_edit_evaluation(request, pk=None):
                 notification.target_users.add(student_user)
                 if parent_user:
                     notification.target_users.add(parent_user)
-            if evaluation.student:
-                pass
-            return redirect('homepage')
-    else:
-        form = EvaluationForm(instance=instance, requesting_user=user, eval_type=eval_type, selected_class_id=selected_class_id)
+                return redirect('academic_records:view_evaluations')
+        else:
+            form = EvaluationSubjectReviewForm(instance=instance, selected_class_id=selected_class_id, requesting_user=user)
+        context = {
+            'form': form,
+            'page_title': f"{'Chỉnh sửa' if pk else 'Tạo mới'} Nhận xét môn học",
+            'evaluation_instance': instance,
+            'eval_type': eval_type,
+            'taught_classes': taught_classes,
+            'selected_class_id': selected_class_id,
+        }
+        return render(request, 'academic_records/create_edit_evaluation.html', context)
 
-    context = {
-        'form': form,
-        'page_title': f"{'Chỉnh sửa' if pk else 'Tạo mới'} Đánh giá/Nhận xét",
-        'evaluation_instance': instance,
-        'eval_type': eval_type,
-        'taught_classes': taught_classes,
-        'selected_class_id': selected_class_id,
-    }
-    return render(request, 'academic_records/create_edit_evaluation.html', context)
+    # Đánh giá học sinh (CONDUCT/TERM_REVIEW): sau khi thêm/sửa cũng chuyển về view_evaluations
+    if eval_type in ['CONDUCT', 'TERM_REVIEW'] or eval_type is None:
+        if request.method == 'POST':
+            form = EvaluationForm(request.POST, instance=instance, requesting_user=user, eval_type=eval_type, selected_class_id=selected_class_id)
+            if form.is_valid():
+                evaluation = form.save(commit=False)
+                is_new = not evaluation.pk
+                if is_new:
+                    evaluation.evaluator = user
+                evaluation.evaluation_date = timezone.now()
+                evaluation.save()
+                form.save_m2m()
+                messages.success(request, f"Đã {'cập nhật' if pk else 'tạo mới'} đánh giá học sinh thành công.")
+                # Gửi thông báo như cũ...
+                student = evaluation.student
+                student_user = student.user
+                parent_profile = getattr(student, 'parent', None)
+                parent_user = parent_profile.user if parent_profile else None
+                eval_type_display = evaluation.get_evaluation_type_display()
+                content = f"Nhà trường xin thông báo về đánh giá {eval_type_display} của học sinh {student_user.get_full_name() or student_user.username}: {evaluation.content}"
+                title = f"Đánh giá {eval_type_display} cho học sinh {student_user.get_full_name() or student_user.username}"
+                notification = Notification.objects.create(
+                    title=title,
+                    content=content,
+                    sent_by=user,
+                    status='SENT',
+                    is_published=True,
+                    publish_time=timezone.now()
+                )
+                notification.target_users.add(student_user)
+                if parent_user:
+                    notification.target_users.add(parent_user)
+                return redirect('academic_records:view_evaluations')
+        else:
+            form = EvaluationForm(instance=instance, requesting_user=user, eval_type=eval_type, selected_class_id=selected_class_id)
+        context = {
+            'form': form,
+            'page_title': f"{'Chỉnh sửa' if pk else 'Tạo mới'} Đánh giá học sinh",
+            'evaluation_instance': instance,
+            'eval_type': eval_type,
+            'taught_classes': taught_classes,
+            'selected_class_id': selected_class_id,
+        }
+        return render(request, 'academic_records/create_edit_evaluation.html', context)
 
 @login_required
 def view_evaluations(request):
@@ -547,8 +594,11 @@ def view_evaluations(request):
             context['error_message'] = "Không tìm thấy hồ sơ phụ huynh của bạn."
         except Exception as e: 
             context['error_message'] = "Đã có lỗi xảy ra khi truy xuất thông tin phụ huynh."
+    elif user_role_name == 'TEACHER':
+        # Cho phép giáo viên truy cập, chuyển hướng sang trang riêng hoặc hiển thị hướng dẫn
+        return redirect('academic_records:teacher_my_evaluations')
     else:
-        context['error_message'] = "Chức năng này chỉ dành cho Học sinh và Phụ huynh."
+        context['error_message'] = "Chức năng này chỉ dành cho Học sinh, Phụ huynh hoặc Giáo viên."
 
     if context['students_to_view']:
         student_pks = [sp.pk for sp in context['students_to_view']]

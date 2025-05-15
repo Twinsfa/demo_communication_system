@@ -1,5 +1,5 @@
 from django import forms
-from .models import Score # Score được định nghĩa trong academic_records.models
+from .models import Score 
 
 # Import các model từ các app khác
 from accounts.models import StudentProfile, User 
@@ -31,13 +31,7 @@ class ScoreContextForm(forms.Form):
         widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         help_text="Chọn ngày thi hoặc ngày kiểm tra."
     )
-    # academic_period = forms.CharField(
-    #     max_length=50,
-    #     required=False, 
-    #     label="Kỳ học/Năm học (VD: HK1 2024-2025)",
-    #     widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'VD: HK1 2024-2025'}),
-    #     help_text="Để trống nếu không áp dụng cho kỳ học cụ thể."
-    # )
+
 
     def __init__(self, *args, **kwargs):
         teacher = kwargs.pop('teacher', None) 
@@ -74,17 +68,17 @@ class ScoreEntryForm(forms.ModelForm):
     Form cho một mục điểm của một học sinh.
     Sẽ được sử dụng trong modelformset_factory.
     """
-    # Fields không phải là một phần của Score model, nhưng cần cho hiển thị/logic
+
     student_name = forms.CharField(
         label="Học sinh", 
         required=False, 
         widget=forms.TextInput(attrs={'readonly': 'readonly', 'class': 'form-control-plaintext bg-light p-1 border rounded'})
     )
-    student_id = forms.IntegerField(widget=forms.HiddenInput(), required=True) # Bắt buộc để biết điểm này của ai
+    student_id = forms.IntegerField(widget=forms.HiddenInput(), required=True) 
 
     class Meta:
         model = Score
-        fields = ['score_value', 'notes'] # Chỉ các trường của model Score mà người dùng sẽ nhập
+        fields = ['score_value', 'notes'] 
         widgets = {
             'score_value': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': '0.01', 'min': '0', 'max': '10'}),
             'notes': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 1, 'placeholder': 'Ghi chú (nếu có)'}),
@@ -96,29 +90,23 @@ class ScoreEntryForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Nếu form được khởi tạo với một instance Score đã có (khi load điểm cũ để sửa)
+
         if self.instance and self.instance.pk and self.instance.student:
             self.fields['student_name'].initial = self.instance.student.user.get_full_name() or self.instance.student.user.username
             self.fields['student_id'].initial = self.instance.student.pk
-        # Nếu form được khởi tạo với initial data (khi tạo formset cho danh sách học sinh mới)
-        # modelformset_factory sẽ truyền initial data vào từng form instance.
-        # Các trường của form sẽ tự động lấy giá trị từ self.initial nếu key khớp.
-        # Ví dụ, nếu self.initial = {'student_id': X, 'student_name': 'Y'},
-        # thì self.fields['student_id'].initial và self.fields['student_name'].initial sẽ được tự động gán.
-        # Chúng ta không cần gán lại một cách tường minh ở đây nếu initial data được cung cấp đúng cho formset.
+
 from django import forms
 from .models import Score, RewardAndDiscipline, Evaluation # Thêm RewardAndDiscipline
 from accounts.models import StudentProfile, User 
 from school_data.models import Class as SchoolClass, Subject as SchoolSubject
 
-# ... (ScoreContextForm, ScoreEntryForm đã có) ...
 
 class RewardAndDisciplineForm(forms.ModelForm):
     class Meta:
         model = RewardAndDiscipline
         fields = ['student', 'record_type', 'date_issued', 'reason']
         widgets = {
-            'student': forms.Select(attrs={'class': 'form-control'}), # Sẽ tốt hơn nếu dùng autocomplete hoặc raw_id
+            'student': forms.Select(attrs={'class': 'form-control'}), 
             'record_type': forms.Select(attrs={'class': 'form-control'}),
             'date_issued': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'reason': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
@@ -161,11 +149,9 @@ class RewardAndDisciplineForm(forms.ModelForm):
 
 
 from django import forms
-from .models import Score, RewardAndDiscipline, Evaluation # Đảm bảo Evaluation đã được import
+from .models import Score, RewardAndDiscipline, Evaluation 
 from accounts.models import StudentProfile, User 
-from school_data.models import Class as SchoolClass, Subject as SchoolSubject # Đổi tên để tránh nhầm lẫn
-
-# ... (ScoreContextForm, ScoreEntryForm, RewardAndDisciplineForm đã có) ...
+from school_data.models import Class as SchoolClass, Subject as SchoolSubject 
 
 class EvaluationForm(forms.ModelForm):
     class Meta:
@@ -235,3 +221,47 @@ class EvaluationForm(forms.ModelForm):
         self.fields['student'].label_from_instance = lambda obj: f"{obj.user.get_full_name() or obj.user.username} (Lớp: {obj.current_class.name if obj.current_class else 'N/A'})"
         self.fields['subject'].empty_label = "--- Chọn môn học (nếu có) ---"
         self.fields['subject'].required = False
+
+from django import forms
+from .models import Evaluation
+from accounts.models import StudentProfile
+from school_data.models import Class as SchoolClass
+
+class EvaluationSubjectReviewForm(forms.ModelForm):
+    class Meta:
+        model = Evaluation
+        fields = ['student', 'subject', 'content']
+        widgets = {
+            'student': forms.Select(attrs={'class': 'form-control'}),
+            'subject': forms.Select(attrs={'class': 'form-control'}),
+            'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 6, 'placeholder': 'Nhập nhận xét...'}),
+        }
+        labels = {
+            'student': 'Chọn học sinh',
+            'subject': 'Chọn môn học',
+            'content': 'Nội dung nhận xét',
+        }
+
+    def __init__(self, *args, **kwargs):
+        selected_class_id = kwargs.pop('selected_class_id', None)
+        requesting_user = kwargs.pop('requesting_user', None)
+        super().__init__(*args, **kwargs)
+        if selected_class_id:
+            try:
+                selected_class = SchoolClass.objects.get(pk=selected_class_id)
+                self.fields['student'].queryset = StudentProfile.objects.filter(current_class=selected_class).select_related('user').order_by('user__last_name', 'user__first_name')
+                # Lọc các môn mà giáo viên này dạy cho lớp này
+                if requesting_user and hasattr(requesting_user, 'teacher_profile'):
+                    subjects_taught = requesting_user.teacher_profile.subjects_taught.all()
+                    self.fields['subject'].queryset = subjects_taught.order_by('name')
+                else:
+                    self.fields['subject'].queryset = SchoolSubject.objects.none()
+            except SchoolClass.DoesNotExist:
+                self.fields['student'].queryset = StudentProfile.objects.none()
+                self.fields['subject'].queryset = SchoolSubject.objects.none()
+        else:
+            self.fields['student'].queryset = StudentProfile.objects.none()
+            self.fields['subject'].queryset = SchoolSubject.objects.none()
+        self.fields['student'].label_from_instance = lambda obj: obj.user.get_full_name() or obj.user.username
+        self.fields['subject'].label_from_instance = lambda obj: obj.name
+        self.fields['subject'].required = True

@@ -20,65 +20,41 @@
         <h1>Hệ thống Thông tin Liên lạc Nhà trường</h1>
     </header>
     <nav>
-        <a href="{% url 'homepage' %}">Trang chủ (Thông báo)</a> {# Thay đổi 'communications:notification_list' thành 'homepage' nếu bạn đã đổi tên URL cho trang chủ #}
+        <a href="{% url 'communications:homepage' %}">Trang chủ</a> 
         {% if user.is_authenticated %}
             
-            {% if user.is_staff and user.department and user.department.id == 1 %}
-                <a href="{% url 'communications:department_request_list' %}">Quản lý đơn từ</a>
-
-                <a href="{% url 'academic_records:school_wide_reward_discipline_list' %}">Quản lý Khen thưởng - Kỷ luật </a> {# <<--- LINK MỚI --- #}
-                <a href="{% url 'academic_records:school_wide_evaluations' %}">Tổng hợp Đánh giá - Nhận xét</a>
+            {% if user.is_staff and user.department  %}
+                <a href="{% url 'communications:notification_list' %}">Quản lý thông báo</a>
                 <a href="{% url 'academic_records:school_wide_scores' %}">Tổng hợp điểm</a>
-                <a href="{% url 'communications:create_notification' %}">Tạo Thông báo</a>
-            {% elif user.is_staff and user.department %}
-                <a href="{% url 'communications:department_request_list' %}">Quản lý đơn từ</a>
-                <a href="{% url 'academic_records:school_wide_reward_discipline_list' %}">Quản lý Khen thưởng - Kỷ luật</a> {# <<--- LINK MỚI --- #}
+                <a href="{% url 'academic_records:school_wide_reward_discipline_list' %}">Quản lý Khen thưởng - Kỷ luật </a> 
                 <a href="{% url 'academic_records:school_wide_evaluations' %}">Tổng hợp Đánh giá - Nhận xét</a>
-                <a href="{% url 'academic_records:school_wide_scores' %}">Tổng hợp điểm</a>
-            {% endif %}    
+                <a href="{% url 'communications:department_request_list' %}">Quản lý đơn từ</a>
+            {% endif %}
 
-            {# Links cho Giáo viên #}
             {% if user.role.name == 'TEACHER' %}
-            <!--    <a href="{% url 'communications:teacher_request_list' %}">Đơn từ cho GV</a> -->
-                <a href="{% url 'communications:teacher_request_list' %}">Quản lý đơn từ</a>
-            <!--    <a href="{% url 'academic_records:enter_scores' %}">Nhập Điểm</a> {# <<--- LINK MỚI --- #} -->
-                <a href="{% url 'academic_records:teacher_view_class_scores' %}">Quản lý điểm </a> {# <<--- LINK MỚI --- #}
-                {# Link cho Giáo viên Chủ nhiệm xem Khen thưởng/Kỷ luật của lớp mình #}
+                <a href="{% url 'communications:notification_list' %}">Quản lý thông báo</a>
+                <a href="{% url 'academic_records:teacher_view_class_scores' %}">Quản lý điểm </a> 
                 <a href="{% url 'academic_records:teacher_view_class_rewards_discipline' %}">Khen thưởng - Kỷ luật</a> 
-            <!--    {# Link cho Giáo viên tạo Khen thưởng/Kỷ luật #}
-                 <a href="{% url 'academic_records:add_reward_discipline' %}">Tạo KT/KL (GV)</a>--> 
-            <!--    <a href="{% url 'academic_records:add_evaluation' %}">Nhận xét môn học </a> {# <<--- LINK NÀY --- #} -->
-                <a href="{% url 'academic_records:teacher_my_evaluations' %}">Đánh giá - Nhận xét </a> {# <<--- LINK NÀY --- #}
+                <a href="{% url 'academic_records:teacher_my_evaluations' %}">Đánh giá - Nhận xét </a> 
+                <a href="{% url 'communications:teacher_request_list' %}">Quản lý đơn từ</a>
              {% endif %}
-            {# --- KẾT THÚC LINK MỚI --- #}
 
+            
 
-            {# --- LINK MỚI CHO TIN NHẮN --- #}
-            <a href="{% url 'communications:conversation_list' %}">Tin nhắn</a>
-            {# --- KẾT THÚC LINK MỚI --- #}
-
-
-            {# --- LINK MỚI ĐỂ TẠO THÔNG BÁO --- #}
-            {% if user.role.name == 'TEACHER' or user.role.name == 'SCHOOL_ADMIN' or user.role.name == 'ADMIN' %}
-                <a href="{% url 'communications:create_notification' %}">Tạo Thông báo</a>
-            {% endif %}
-            {# --- KẾT THÚC LINK MỚI --- #}
-
-
-            {# --- LINK MỚI CHO XEM ĐIỂM --- #}
             {% if user.role.name == 'STUDENT' or user.role.name == 'PARENT' %}
+                <a href="{% url 'communications:notification_list' %}">Thông báo</a>
                 <a href="{% url 'academic_records:view_scores' %}">Điểm của tôi</a>
-                <a href="{% url 'academic_records:view_reward_discipline' %}">Khen thưởng và Kỷ luật</a> {# <<--- LINK MỚI --- #}
-                <a href="{% url 'academic_records:view_evaluations' %}">Nhận xét của giáo viên </a> {# <<--- LINK NÀY --- #}
+                <a href="{% url 'academic_records:view_reward_discipline' %}">Khen thưởng và Kỷ luật</a> 
+                <a href="{% url 'academic_records:view_evaluations' %}">Nhận xét của giáo viên </a> 
             {% endif %}
-
 
             {% if user.role.name == 'PARENT' %}
                 <a href="{% url 'communications:my_submitted_requests' %}">Quản lý đơn từ</a>
             {% endif %}
 
-            {# --- KẾT THÚC LINK MỚI --- #}            
-            <span style="color: white; margin: 0 15px;">Chào, {{ user.username }}!</span> {# Thêm style cho dễ nhìn #}
+            <a href="{% url 'communications:conversation_list' %}">Tin nhắn</a>
+    
+            <span style="color: white; margin: 0 15px;">Chào, {{ user.username }}!</span> 
             <form method="post" action="{% url 'logout' %}" style="display: inline;">
                 {% csrf_token %}
                 <button type="submit" style="background:none; border:none; padding:0; color:white; cursor:pointer; font-weight:bold; text-decoration:none; font-family: Arial, sans-serif; font-size: inherit;"> {# Chỉnh style cho giống link #}
@@ -94,9 +70,7 @@
         {% endblock %}
     </main>
     <footer>
-        <p>&copy; {% now "Y" %} Trường Đại học Công nghệ - ĐHQGHN. Phát triển bởi Nhóm Sinh viên.</p>
+        <p>&copy; {% now "Y" %} Đại học Quốc Gia Hà Nội - Trường Đại học Công nghệ. Phát triển bởi Nhóm Sinh viên.</p>
     </footer>
 </body>
 </html>
-
-

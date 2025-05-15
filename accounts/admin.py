@@ -117,9 +117,3 @@ class CustomUserAdmin(BaseUserAdmin): # Kế thừa từ BaseUserAdmin
         return "-"
     role_display.short_description = 'Vai trò'
     role_display.admin_order_field = 'role__name'
-
-    # get_inline_instances có thể được giữ lại hoặc bỏ đi nếu bạn muốn tất cả inline luôn hiển thị
-    # def get_inline_instances(self, request, obj=None):
-    #     # ... (logic cũ của bạn) ...
-    #     return super().get_inline_instances(request, obj)
-

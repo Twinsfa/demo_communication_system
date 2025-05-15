@@ -53,8 +53,8 @@
         <ul style="list-style-type: none; padding: 0;">
             {% for evaluation in evaluation_list %}
                 <li style="background-color: #f9f9f9; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 15px;">
-                    <h4 style="margin-top: 0; color: #17a2b8;">{{ evaluation.get_evaluation_type_display }}
-                        {% if evaluation.subject %}(Môn: {{ evaluation.subject.name }}){% endif %}
+                    <h4 style="margin-top: 0; color: #17a2b8;">
+                        Nhận xét {% if evaluation.subject %}: <span style="color:#d35400;">{{ evaluation.subject.name }}</span>{% endif %}
                     </h4>
                     <p><small>Ngày: {{ evaluation.evaluation_date|date:"d/m/Y" }} - Bởi: {{ evaluation.evaluator.get_full_name|default:evaluation.evaluator.username|default:"Không rõ" }}</small></p>
                     <div style="white-space: pre-wrap; margin-top: 8px; padding: 10px; background-color: #fff; border: 1px solid #e0e0e0; border-radius: 4px;">

@@ -5,19 +5,10 @@
 {% block content %}
 <h2>{{ page_title }}</h2>
 
-<form method="post" novalidate class="p-3 border rounded bg-light">
-    {% csrf_token %}
-    
-    {% if form.non_field_errors %}
-        <div class="alert alert-danger">
-            {% for error in form.non_field_errors %}
-                <p>{{ error }}</p>
-            {% endfor %}
-        </div>
-    {% endif %}
-
-    {# Nếu là nhận xét môn học, cho chọn lớp trước #}
-    {% if eval_type == 'SUBJECT_REVIEW' %}
+{# Nếu là nhận xét môn học, cho chọn lớp trước #}
+{% if eval_type == 'SUBJECT_REVIEW' %}
+    <form method="get" class="p-3 border rounded bg-light" style="margin-bottom: 20px;">
+        <input type="hidden" name="type" value="SUBJECT_REVIEW">
         <div style="margin-bottom: 15px;">
             <label for="class_select">Chọn lớp giảng dạy:</label><br>
             <select name="class_id" id="class_select" class="form-control" onchange="this.form.submit()">
@@ -27,45 +18,71 @@
                 {% endfor %}
             </select>
         </div>
-    {% endif %}
-
-    {% for field in form %}
-        {% if eval_type != 'SUBJECT_REVIEW' %}
+    </form>
+    {% if selected_class_id and form %}
+        <form method="post" novalidate class="p-3 border rounded bg-light">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
             <div style="margin-bottom: 15px;">
-                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label><br>
-                {{ field }}
-                {% if field.help_text %}
-                    <small style="color: grey; display: block; margin-top: 4px;">{{ field.help_text }}</small>
-                {% endif %}
-                {% for error in field.errors %}
+                <label for="{{ form.student.id_for_label }}" class="form-label">{{ form.student.label }}:</label><br>
+                {{ form.student }}
+                {% for error in form.student.errors %}
                     <p style="color: red; font-size: 0.9em; margin-top: 4px;">{{ error }}</p>
                 {% endfor %}
             </div>
-        {% elif field.name == 'evaluation_type' %}
             <div style="margin-bottom: 15px;">
-                <label class="form-label">Loại Đánh giá/Nhận xét:</label><br>
-                <input type="text" class="form-control-plaintext" value="Nhận xét môn học" readonly>
-                <input type="hidden" name="evaluation_type" value="SUBJECT_REVIEW">
-            </div>
-        {% elif field.name != 'student' or selected_class_id %}
-            <div style="margin-bottom: 15px;">
-                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label><br>
-                {{ field }}
-                {% if field.help_text %}
-                    <small style="color: grey; display: block; margin-top: 4px;">{{ field.help_text }}</small>
-                {% endif %}
-                {% for error in field.errors %}
+                <label for="{{ form.subject.id_for_label }}" class="form-label">{{ form.subject.label }}:</label><br>
+                {{ form.subject }}
+                {% for error in form.subject.errors %}
                     <p style="color: red; font-size: 0.9em; margin-top: 4px;">{{ error }}</p>
+                {% endfor %}
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="{{ form.content.id_for_label }}" class="form-label">{{ form.content.label }}:</label><br>
+                {{ form.content }}
+                {% for error in form.content.errors %}
+                    <p style="color: red; font-size: 0.9em; margin-top: 4px;">{{ error }}</p>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn btn-primary" style="background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+                {% if evaluation_instance %}Lưu Thay đổi{% else %}Lưu Nhận xét{% endif %}
+            </button>
+            <a href="{% url 'communications:homepage' %}" style="margin-left: 10px; color: #6c757d; text-decoration: none; padding: 10px 15px; border: 1px solid #6c757d; border-radius: 5px;">Hủy</a>
+        </form>
+    {% endif %}
+{% else %}
+    {# Các loại đánh giá khác giữ nguyên #}
+    <form method="post" novalidate class="p-3 border rounded bg-light">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
                 {% endfor %}
             </div>
         {% endif %}
-    {% endfor %}
-    
-    <button type="submit" class="btn btn-primary" style="background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
-        {% if evaluation_instance %}Lưu Thay đổi{% else %}Lưu Đánh giá{% endif %}
-    </button>
-    <a href="{% url 'homepage' %}" {# Hoặc một URL phù hợp để hủy, ví dụ: danh sách đánh giá của giáo viên #}
-       style="margin-left: 10px; color: #6c757d; text-decoration: none; padding: 10px 15px; border: 1px solid #6c757d; border-radius: 5px;">Hủy</a>
-</form>
-
+        {% for field in form %}
+            <div style="margin-bottom: 15px;">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label><br>
+                {{ field }}
+                {% if field.help_text %}
+                    <small style="color: grey; display: block; margin-top: 4px;">{{ field.help_text }}</small>
+                {% endif %}
+                {% for error in field.errors %}
+                    <p style="color: red; font-size: 0.9em; margin-top: 4px;">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary" style="background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+            {% if evaluation_instance %}Lưu Thay đổi{% else %}Lưu Đánh giá{% endif %}
+        </button>
+        <a href="{% url 'communications:homepage' %}" style="margin-left: 10px; color: #6c757d; text-decoration: none; padding: 10px 15px; border: 1px solid #6c757d; border-radius: 5px;">Hủy</a>
+    </form>
+{% endif %}
 {% endblock %}

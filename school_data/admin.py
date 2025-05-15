@@ -12,17 +12,11 @@ class DepartmentAdmin(admin.ModelAdmin):
 class ClassAdmin(admin.ModelAdmin):
     list_display = ('name', 'homeroom_teacher', 'academic_year') # Các trường hiển thị
     search_fields = ('name', 'academic_year') # Tìm kiếm theo tên lớp, năm học
-    list_filter = ('academic_year', 'homeroom_teacher') # Bộ lọc bên phải
-    # Để autocomplete cho homeroom_teacher (nếu có nhiều giáo viên)
+    list_filter = ('academic_year', 'homeroom_teacher') 
     autocomplete_fields = ['homeroom_teacher']
 
 # Đăng ký model Subject
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
     list_display = ('name', 'description') # Các trường hiển thị
-    search_fields = ('name',) # Tìm kiếm theo tên môn học
-
-# Hoặc cách đăng ký đơn giản hơn nếu không cần tùy chỉnh nhiều:
-# admin.site.register(Department)
-# admin.site.register(Class)
-# admin.site.register(Subject)
+    search_fields = ('name',) 

@@ -1,20 +1,18 @@
 from django.db import models
-from django.conf import settings # Để tham chiếu đến Custom User Model
-# from accounts.models import StudentProfile # Hoặc dùng string 'accounts.StudentProfile'
-# from school_data.models import Subject # Hoặc dùng string 'school_data.Subject'
+from django.conf import settings 
 
 class Score(models.Model):
     # ERD: grade_id (PK), score, exam_type, exam_date
-    # Liên kết N:M với STUDENT và SUBJECT (qua ForeignKey ở đây)
+    # Liên kết N:M với STUDENT và SUBJECT 
     student = models.ForeignKey(
         'accounts.StudentProfile',
-        on_delete=models.CASCADE, # Nếu StudentProfile bị xóa, điểm của học sinh đó cũng xóa
+        on_delete=models.CASCADE, 
         related_name='scores',
         verbose_name="Học sinh"
     )
     subject = models.ForeignKey(
         'school_data.Subject',
-        on_delete=models.CASCADE, # Nếu Môn học bị xóa, các điểm liên quan cũng xóa
+        on_delete=models.CASCADE, 
         related_name='scores',
         verbose_name="Môn học"
     )
@@ -46,7 +44,7 @@ class Score(models.Model):
 
 class RewardAndDiscipline(models.Model):
     # ERD: reward_id (PK), type (khen thưởng/kỷ luật), date, content
-    # Liên kết 1:N từ STUDENT (ForeignKey ở đây trỏ đến Student)
+    # Liên kết 1:N từ STUDENT 
     RECORD_TYPE_CHOICES = [
         ('REWARD', 'Khen thưởng'),
         ('DISCIPLINE', 'Kỷ luật'),
