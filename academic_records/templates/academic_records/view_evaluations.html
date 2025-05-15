@@ -9,25 +9,23 @@
     <p style="color: red; padding: 10px; background-color: #fdd; border: 1px solid #fbb; border-radius: 4px;">Lỗi: {{ error_message }}</p>
 {% endif %}
 
-{% if not evaluations_by_student and not error_message and not students_to_view %} 
+{% if not evaluations_conduct_by_student and not evaluations_subject_review_by_student and not error_message and not students_to_view %} 
     <p>Hiện chưa có đánh giá/nhận xét nào.</p> 
 {% endif %}
 
-{% for student_name, evaluation_list in evaluations_by_student.items %}
-    {# Chỉ hiển thị tên học sinh nếu phụ huynh xem cho nhiều con, hoặc nếu context is_parent là True #}
+{# Đánh giá học sinh #}
+<h3 style="margin-top: 30px; color: #0056b3;">Đánh giá học sinh</h3>
+{% for student_name, evaluation_list in evaluations_conduct_by_student.items %}
     {% if students_to_view|length > 1 or is_parent %}
-        <h3 style="margin-top: 30px; border-bottom: 2px solid #007bff; padding-bottom: 5px; color: #0056b3;">
-            Đánh giá/Nhận xét cho Học sinh: {{ student_name }}
-        </h3>
+        <h4 style="margin-top: 20px;">Học sinh: {{ student_name }}</h4>
     {% endif %}
-
     {% if not evaluation_list %}
-        <p>Chưa có đánh giá/nhận xét nào cho học sinh {{ student_name }}.</p>
+        <p>Chưa có đánh giá nào cho học sinh {{ student_name }}.</p>
     {% else %}
         <ul style="list-style-type: none; padding: 0;">
             {% for evaluation in evaluation_list %}
                 <li style="background-color: #f9f9f9; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 15px;">
-                    <h4 style="margin-top: 0; color: #17a2b8;">{{ evaluation.get_evaluation_type_display }} 
+                    <h4 style="margin-top: 0; color: #17a2b8;">{{ evaluation.get_evaluation_type_display }}
                         {% if evaluation.subject %}(Môn: {{ evaluation.subject.name }}){% endif %}
                     </h4>
                     <p><small>Ngày: {{ evaluation.evaluation_date|date:"d/m/Y" }} - Bởi: {{ evaluation.evaluator.get_full_name|default:evaluation.evaluator.username|default:"Không rõ" }}</small></p>
@@ -39,14 +37,36 @@
         </ul>
     {% endif %}
     {% if not forloop.last %}<hr style="border-top: 1px solid #ccc; margin-top:20px;">{% endif %}
-{% empty %} {# Khối này sẽ chạy nếu evaluations_by_student là rỗng #}
-    {% if not error_message %}
-        {% if not students_to_view %}
-            <p>Không có thông tin học sinh để hiển thị đánh giá.</p>
-        {% elif students_to_view and not evaluations_by_student %} 
-            <p>Hiện chưa có đánh giá/nhận xét nào cho các học sinh được chỉ định.</p>
-        {% endif %}
+{% empty %}
+    <p>Chưa có đánh giá học sinh nào.</p>
+{% endfor %}
+
+{# Nhận xét môn học #}
+<h3 style="margin-top: 30px; color: #0056b3;">Nhận xét môn học</h3>
+{% for student_name, evaluation_list in evaluations_subject_review_by_student.items %}
+    {% if students_to_view|length > 1 or is_parent %}
+        <h4 style="margin-top: 20px;">Học sinh: {{ student_name }}</h4>
     {% endif %}
+    {% if not evaluation_list %}
+        <p>Chưa có nhận xét môn học nào cho học sinh {{ student_name }}.</p>
+    {% else %}
+        <ul style="list-style-type: none; padding: 0;">
+            {% for evaluation in evaluation_list %}
+                <li style="background-color: #f9f9f9; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 15px;">
+                    <h4 style="margin-top: 0; color: #17a2b8;">{{ evaluation.get_evaluation_type_display }}
+                        {% if evaluation.subject %}(Môn: {{ evaluation.subject.name }}){% endif %}
+                    </h4>
+                    <p><small>Ngày: {{ evaluation.evaluation_date|date:"d/m/Y" }} - Bởi: {{ evaluation.evaluator.get_full_name|default:evaluation.evaluator.username|default:"Không rõ" }}</small></p>
+                    <div style="white-space: pre-wrap; margin-top: 8px; padding: 10px; background-color: #fff; border: 1px solid #e0e0e0; border-radius: 4px;">
+                        {{ evaluation.content|linebreaksbr }}
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    {% if not forloop.last %}<hr style="border-top: 1px solid #ccc; margin-top:20px;">{% endif %}
+{% empty %}
+    <p>Chưa có nhận xét môn học nào.</p>
 {% endfor %}
 
 {% endblock %}

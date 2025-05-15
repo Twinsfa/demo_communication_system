@@ -16,17 +16,49 @@
         </div>
     {% endif %}
 
-    {% for field in form %}
+    {# Nếu là nhận xét môn học, cho chọn lớp trước #}
+    {% if eval_type == 'SUBJECT_REVIEW' %}
         <div style="margin-bottom: 15px;">
-            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label><br>
-            {{ field }}
-            {% if field.help_text %}
-                <small style="color: grey; display: block; margin-top: 4px;">{{ field.help_text }}</small>
-            {% endif %}
-            {% for error in field.errors %}
-                <p style="color: red; font-size: 0.9em; margin-top: 4px;">{{ error }}</p>
-            {% endfor %}
+            <label for="class_select">Chọn lớp giảng dạy:</label><br>
+            <select name="class_id" id="class_select" class="form-control" onchange="this.form.submit()">
+                <option value="">--- Chọn lớp ---</option>
+                {% for class_obj in taught_classes %}
+                    <option value="{{ class_obj.pk }}" {% if class_obj.pk|stringformat:'s' == selected_class_id %}selected{% endif %}>{{ class_obj.name }}</option>
+                {% endfor %}
+            </select>
         </div>
+    {% endif %}
+
+    {% for field in form %}
+        {% if eval_type != 'SUBJECT_REVIEW' %}
+            <div style="margin-bottom: 15px;">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label><br>
+                {{ field }}
+                {% if field.help_text %}
+                    <small style="color: grey; display: block; margin-top: 4px;">{{ field.help_text }}</small>
+                {% endif %}
+                {% for error in field.errors %}
+                    <p style="color: red; font-size: 0.9em; margin-top: 4px;">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% elif field.name == 'evaluation_type' %}
+            <div style="margin-bottom: 15px;">
+                <label class="form-label">Loại Đánh giá/Nhận xét:</label><br>
+                <input type="text" class="form-control-plaintext" value="Nhận xét môn học" readonly>
+                <input type="hidden" name="evaluation_type" value="SUBJECT_REVIEW">
+            </div>
+        {% elif field.name != 'student' or selected_class_id %}
+            <div style="margin-bottom: 15px;">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label><br>
+                {{ field }}
+                {% if field.help_text %}
+                    <small style="color: grey; display: block; margin-top: 4px;">{{ field.help_text }}</small>
+                {% endif %}
+                {% for error in field.errors %}
+                    <p style="color: red; font-size: 0.9em; margin-top: 4px;">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
     {% endfor %}
     
     <button type="submit" class="btn btn-primary" style="background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">

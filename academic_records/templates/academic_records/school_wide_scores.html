@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<h2>{{ page_title }}</h2>
+
+<form method="get" class="mb-4">
+    <label for="class_id">Chọn lớp:</label>
+    <select name="class_id" id="class_id" class="form-control" style="width: 250px; display: inline-block; margin-left: 10px;">
+        <option value="">--- Chọn lớp ---</option>
+        {% for class_obj in all_classes %}
+            <option value="{{ class_obj.pk }}" {% if selected_class and class_obj.pk == selected_class.pk %}selected{% endif %}>{{ class_obj.name }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary" style="margin-left: 10px;">Xem</button>
+</form>
+
+{% if selected_class %}
+    {% if scores_by_subject %}
+        {% for subject, subject_scores in scores_by_subject.items %}
+            <h4 style="margin-top: 30px; color: #0056b3;">Môn: {{ subject.name }} <span style="font-weight: normal; color: #444;">(GV: {{ subject.teacher_names|default:'N/A' }})</span></h4>
+            <div style="overflow-x: auto;">
+                <table class="table table-bordered" style="min-width: 700px;">
+                    <thead>
+                        <tr style="background-color: #f2f2f2;">
+                            <th>Học sinh</th>
+                            <th>Ngày sinh</th>
+                            <th>Loại kiểm tra</th>
+                            <th>Ngày thi</th>
+                            <th>Điểm</th>
+                            <th>Ghi chú</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in subject_scores %}
+                            {% for score in row.scores %}
+                                <tr>
+                                    <td>{{ row.student.user.get_full_name|default:row.student.user.username }}</td>
+                                    <td>{% if row.student.user.date_of_birth %}{{ row.student.user.date_of_birth|date:'d/m/Y' }}{% else %}-{% endif %}</td>
+                                    <td>{{ score.get_exam_type_display }}</td>
+                                    <td>{{ score.exam_date|date:'d/m/Y' }}</td>
+                                    <td>{{ score.score_value }}</td>
+                                    <td>{{ score.notes }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td>{{ row.student.user.get_full_name|default:row.student.user.username }}</td>
+                                    <td>{% if row.student.user.date_of_birth %}{{ row.student.user.date_of_birth|date:'d/m/Y' }}{% else %}-{% endif %}</td>
+                                    <td colspan="4" style="text-align: center; color: #888;">Chưa có điểm</td>
+                                </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Chưa có dữ liệu điểm cho lớp này.</p>
+    {% endif %}
+{% else %}
+    <p>Vui lòng chọn lớp để xem thống kê điểm.</p>
+{% endif %}
+
+{% endblock %} 

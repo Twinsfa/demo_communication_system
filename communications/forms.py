@@ -3,6 +3,7 @@ from .models import RequestForm, Message, Conversation # Thêm Conversation
 from accounts.models import StudentProfile, User # StudentProfile, User từ accounts.models
 from school_data.models import Department # Department từ school_data.models
 from django.core.exceptions import PermissionDenied
+from django.db import models
 
 class RequestFormSubmissionForm(forms.ModelForm):
     related_student = forms.ModelChoiceField(
@@ -283,14 +284,64 @@ class StartConversationForm(forms.Form):
     def __init__(self, *args, **kwargs):
         requesting_user = kwargs.pop('requesting_user', None) # Lấy user hiện tại từ view
         super().__init__(*args, **kwargs)
+        from accounts.models import Role, StudentProfile, ParentProfile, User
+        from school_data.models import Class as SchoolClass, Subject as SchoolSubject
         if requesting_user:
-            # Loại trừ chính người dùng hiện tại và chỉ lấy những user active
-            self.fields['recipient'].queryset = User.objects.filter(is_active=True).exclude(pk=requesting_user.pk).order_by('username')
+            base_qs = User.objects.filter(is_active=True).exclude(pk=requesting_user.pk)
+            role_name = getattr(requesting_user.role, 'name', None) if hasattr(requesting_user, 'role') and requesting_user.role else None
+            # 1. Giáo viên: gửi tới tất cả user (trừ admin)
+            if role_name == 'TEACHER':
+                self.fields['recipient'].queryset = base_qs.exclude(role__name='ADMIN')
+            # 2. Phòng ban: gửi tới user phòng ban khác và giáo viên
+            elif role_name == 'DEPARTMENT':
+                my_department_id = getattr(requesting_user.department, 'id', None) if hasattr(requesting_user, 'department') and requesting_user.department else None
+                self.fields['recipient'].queryset = base_qs.filter(
+                    (
+                        models.Q(is_staff=True, department__isnull=False) & ~models.Q(department__id=my_department_id)
+                    ) | models.Q(role__name='TEACHER')
+                ).exclude(role__name__in=['PARENT', 'STUDENT'])
+            # 3. Phụ huynh: gửi tới giáo viên chủ nhiệm, giáo viên dạy con, phụ huynh cùng lớp
+            elif role_name == 'PARENT':
+                try:
+                    parent_profile = ParentProfile.objects.get(user=requesting_user)
+                    children = parent_profile.children.all()
+                    class_ids = set()
+                    teacher_ids = set()
+                    parent_ids = set()
+                    for child in children:
+                        if child.current_class:
+                            class_ids.add(child.current_class.pk)
+                            # Giáo viên chủ nhiệm
+                            if child.current_class.homeroom_teacher:
+                                teacher_ids.add(child.current_class.homeroom_teacher.pk)
+                            # Giáo viên dạy các môn
+                            for subj in child.enrolled_subjects.all():
+                                for t in subj.teachers.all():
+                                    teacher_ids.add(t.user.pk)
+                    # Phụ huynh cùng lớp
+                    parent_ids = set(ParentProfile.objects.filter(children__current_class__pk__in=class_ids).exclude(user=requesting_user).values_list('user__pk', flat=True))
+                    self.fields['recipient'].queryset = base_qs.filter(
+                        models.Q(pk__in=teacher_ids) | models.Q(pk__in=parent_ids)
+                    )
+                except ParentProfile.DoesNotExist:
+                    self.fields['recipient'].queryset = base_qs.none()
+            # 4. Học sinh: gửi tới giáo viên chủ nhiệm, giáo viên dạy mình
+            elif role_name == 'STUDENT':
+                try:
+                    student_profile = StudentProfile.objects.get(user=requesting_user)
+                    teacher_ids = set()
+                    if student_profile.current_class and student_profile.current_class.homeroom_teacher:
+                        teacher_ids.add(student_profile.current_class.homeroom_teacher.pk)
+                    for subj in student_profile.enrolled_subjects.all():
+                        for t in subj.teachers.all():
+                            teacher_ids.add(t.user.pk)
+                    self.fields['recipient'].queryset = base_qs.filter(pk__in=teacher_ids)
+                except StudentProfile.DoesNotExist:
+                    self.fields['recipient'].queryset = base_qs.none()
+            else:
+                self.fields['recipient'].queryset = base_qs
         else:
-            # Nếu không có user (trường hợp hiếm), lấy tất cả user active
             self.fields['recipient'].queryset = User.objects.filter(is_active=True).order_by('username')
-
-        # Tùy chỉnh hiển thị cho ModelChoiceField (hiển thị username hoặc full_name)
         self.fields['recipient'].label_from_instance = lambda obj: obj.get_full_name() or obj.username
 
 

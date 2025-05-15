@@ -23,11 +23,18 @@
         <a href="{% url 'homepage' %}">Trang chủ (Thông báo)</a> {# Thay đổi 'communications:notification_list' thành 'homepage' nếu bạn đã đổi tên URL cho trang chủ #}
         {% if user.is_authenticated %}
             
-            {% if user.is_staff and user.department %}
+            {% if user.is_staff and user.department and user.department.id == 1 %}
                 <a href="{% url 'communications:department_request_list' %}">Quản lý đơn từ</a>
-                <a href="{% url 'academic_records:add_reward_discipline' %}">Tạo KT/KL (P.Ban)</a> 
-                <a href="{% url 'academic_records:school_wide_reward_discipline_list' %}">Tổng hợp KT/KL</a> {# <<--- LINK MỚI --- #}
+
+                <a href="{% url 'academic_records:school_wide_reward_discipline_list' %}">Quản lý Khen thưởng - Kỷ luật </a> {# <<--- LINK MỚI --- #}
+                <a href="{% url 'academic_records:school_wide_evaluations' %}">Tổng hợp Đánh giá - Nhận xét</a>
+                <a href="{% url 'academic_records:school_wide_scores' %}">Tổng hợp điểm</a>
                 <a href="{% url 'communications:create_notification' %}">Tạo Thông báo</a>
+            {% elif user.is_staff and user.department %}
+                <a href="{% url 'communications:department_request_list' %}">Quản lý đơn từ</a>
+                <a href="{% url 'academic_records:school_wide_reward_discipline_list' %}">Quản lý Khen thưởng - Kỷ luật</a> {# <<--- LINK MỚI --- #}
+                <a href="{% url 'academic_records:school_wide_evaluations' %}">Tổng hợp Đánh giá - Nhận xét</a>
+                <a href="{% url 'academic_records:school_wide_scores' %}">Tổng hợp điểm</a>
             {% endif %}    
 
             {# Links cho Giáo viên #}
@@ -41,7 +48,7 @@
             <!--    {# Link cho Giáo viên tạo Khen thưởng/Kỷ luật #}
                  <a href="{% url 'academic_records:add_reward_discipline' %}">Tạo KT/KL (GV)</a>--> 
             <!--    <a href="{% url 'academic_records:add_evaluation' %}">Nhận xét môn học </a> {# <<--- LINK NÀY --- #} -->
-                <a href="{% url 'academic_records:teacher_my_evaluations' %}">Đánh giá hạnh kiểm </a> {# <<--- LINK NÀY --- #}
+                <a href="{% url 'academic_records:teacher_my_evaluations' %}">Đánh giá - Nhận xét </a> {# <<--- LINK NÀY --- #}
              {% endif %}
             {# --- KẾT THÚC LINK MỚI --- #}
 

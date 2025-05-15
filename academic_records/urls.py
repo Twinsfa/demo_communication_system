@@ -21,4 +21,8 @@ urlpatterns = [
 
     # URL MỚI CHO GIÁO VIÊN XEM ĐÁNH GIÁ CỦA MÌNH
     path('teacher/my-evaluations/', views.teacher_my_evaluations, name='teacher_my_evaluations'),
+
+    path('school-wide/evaluations/', views.school_wide_evaluations, name='school_wide_evaluations'),
+
+    path('school-wide/scores/', views.school_wide_scores, name='school_wide_scores'),
 ]

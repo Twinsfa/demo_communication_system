@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Tổng hợp Đánh giá & Nhận xét Toàn trường{% endblock %}
+
+{% block content %}
+<h2>Tổng hợp Đánh giá & Nhận xét Toàn trường</h2>
+
+<h3>Đánh giá học sinh (hạnh kiểm, tổng kết)</h3>
+{% if evaluations_conduct %}
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+        <thead>
+            <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Học sinh</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Lớp</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Loại Đánh giá</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ngày</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Người đánh giá</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Nội dung (rút gọn)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for evaluation in evaluations_conduct %}
+                <tr {% if forloop.counter0|divisibleby:2 %}style="background-color: #f9f9f9;"{% endif %}>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.student.user.get_full_name|default:evaluation.student.user.username }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.student.current_class.name|default:"-" }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.get_evaluation_type_display }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.evaluation_date|date:"d/m/Y" }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.evaluator.get_full_name|default:evaluation.evaluator.username|default:"-" }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.content|truncatewords_html:15|linebreaksbr }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>Chưa có đánh giá học sinh nào.</p>
+{% endif %}
+
+<h3>Nhận xét môn học</h3>
+{% if evaluations_subject_review %}
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+        <thead>
+            <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Học sinh</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Lớp</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Môn học</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ngày</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Người nhận xét</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Nội dung (rút gọn)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for evaluation in evaluations_subject_review %}
+                <tr {% if forloop.counter0|divisibleby:2 %}style="background-color: #f9f9f9;"{% endif %}>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.student.user.get_full_name|default:evaluation.student.user.username }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.student.current_class.name|default:"-" }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.subject.name|default:"-" }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.evaluation_date|date:"d/m/Y" }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.evaluator.get_full_name|default:evaluation.evaluator.username|default:"-" }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{{ evaluation.content|truncatewords_html:15|linebreaksbr }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>Chưa có nhận xét môn học nào.</p>
+{% endif %}
+
+{% endblock %} 

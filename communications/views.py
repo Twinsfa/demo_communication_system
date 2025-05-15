@@ -21,10 +21,17 @@ def notification_list(request):
     
     final_q = direct_q | role_q | class_q
     notifications = Notification.objects.filter(final_q, is_published=True, status='SENT').distinct().order_by('-publish_time', '-created_time')
-
+    # Lấy danh sách id các thông báo đã đọc (giả sử có trường read_by_users ManyToMany hoặc một model NotificationRead)
+    # Nếu chưa có, tạm thời đánh dấu tất cả là chưa đọc
+    read_notification_ids = set() # TODO: Nếu có model NotificationRead, lấy id các notification user đã đọc
+    notifications_created_by_me = None
+    if (hasattr(user, 'role') and user.role and user.role.name == 'TEACHER') or (user.is_staff and hasattr(user, 'department') and user.department):
+        notifications_created_by_me = Notification.objects.filter(sent_by=user).order_by('-publish_time', '-created_time')
     context = {
         'notifications': notifications,
-        'page_title': 'Danh sách Thông báo'
+        'page_title': 'Danh sách Thông báo',
+        'read_notification_ids': read_notification_ids,
+        'notifications_created_by_me': notifications_created_by_me,
     }
     return render(request, 'communications/notification_list.html', context)
 

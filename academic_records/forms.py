@@ -170,11 +170,9 @@ from school_data.models import Class as SchoolClass, Subject as SchoolSubject # 
 class EvaluationForm(forms.ModelForm):
     class Meta:
         model = Evaluation
-        # Các trường 'evaluator' (người đánh giá) và 'evaluation_date' (ngày đánh giá)
-        # sẽ được tự động gán trong view khi lưu.
         fields = ['student', 'subject', 'evaluation_type', 'content']
         widgets = {
-            'student': forms.Select(attrs={'class': 'form-control'}), # Cân nhắc dùng autocomplete/raw_id nếu danh sách HS dài
+            'student': forms.Select(attrs={'class': 'form-control'}),
             'subject': forms.Select(attrs={'class': 'form-control'}),
             'evaluation_type': forms.Select(attrs={'class': 'form-control'}),
             'content': forms.Textarea(attrs={'class': 'form-control', 'rows': 6, 'placeholder': 'Nhập nội dung đánh giá/nhận xét chi tiết...'}),
@@ -190,59 +188,50 @@ class EvaluationForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        requesting_user = kwargs.pop('requesting_user', None) # Lấy user giáo viên từ view
+        eval_type = kwargs.pop('eval_type', None)
+        selected_class_id = kwargs.pop('selected_class_id', None)
+        requesting_user = kwargs.pop('requesting_user', None)
         super().__init__(*args, **kwargs)
 
-        # Giới hạn danh sách học sinh mà giáo viên này có thể đánh giá
-        # Logic này cần được tùy chỉnh dựa trên cách bạn phân công giảng dạy/chủ nhiệm
-        if requesting_user and hasattr(requesting_user, 'role') and requesting_user.role:
-            if requesting_user.role.name == 'TEACHER':
-                # Ví dụ: Lấy học sinh từ các lớp giáo viên này chủ nhiệm
+        # Nếu là Đánh giá học sinh (CONDUCT/TERM_REVIEW)
+        if eval_type == 'CONDUCT':
+            self.fields['evaluation_type'].choices = [
+                ('CONDUCT', 'Đánh giá Hạnh kiểm'),
+                ('TERM_REVIEW', 'Đánh giá Cuối kỳ/Năm'),
+            ]
+            self.fields['subject'].widget = forms.HiddenInput()
+            if requesting_user and hasattr(requesting_user, 'role') and requesting_user.role and requesting_user.role.name == 'TEACHER':
                 homeroom_classes = SchoolClass.objects.filter(homeroom_teacher=requesting_user)
-                
-                # (Nâng cao) Lấy học sinh từ các lớp giáo viên này giảng dạy các môn họ phụ trách
-                # student_pks_from_taught_subjects = set()
-                # if hasattr(requesting_user, 'teacher_profile'):
-                #     for subject_taught in requesting_user.teacher_profile.subjects_taught.all():
-                #         # Giả sử có một model liên kết Subject với Class (ví dụ: ClassSubjectAssignment)
-                #         # Hoặc StudentProfile có ManyToManyField 'enrolled_subjects'
-                #         students_learning_subject = StudentProfile.objects.filter(enrolled_subjects=subject_taught)
-                #         student_pks_from_taught_subjects.update(students_learning_subject.values_list('pk', flat=True))
-                
-                # Kết hợp học sinh từ lớp chủ nhiệm và lớp giảng dạy (nếu có logic đó)
-                # student_queryset = StudentProfile.objects.filter(
-                # Q(current_class__in=homeroom_classes) | Q(pk__in=list(student_pks_from_taught_subjects))
-                # ).distinct().select_related('user').order_by('current_class__name', 'user__last_name', 'user__first_name')
-
                 if homeroom_classes.exists():
-                    self.fields['student'].queryset = StudentProfile.objects.filter(
-                        current_class__in=homeroom_classes
-                    ).select_related('user').order_by('current_class__name', 'user__last_name', 'user__first_name')
-                    self.fields['student'].help_text = "Hiển thị học sinh từ các lớp bạn chủ nhiệm."
+                    self.fields['student'].queryset = StudentProfile.objects.filter(current_class__in=homeroom_classes).select_related('user').order_by('current_class__name', 'user__last_name', 'user__first_name')
                 else:
-                    # Nếu không chủ nhiệm, có thể cho phép chọn từ tất cả (nếu có quyền khác) hoặc không cho chọn
-                    # Tạm thời để trống nếu không chủ nhiệm lớp nào
-                    self.fields['student'].queryset = StudentProfile.objects.none() # Hoặc tất cả nếu có quyền
-                    self.fields['student'].help_text = "Bạn hiện không chủ nhiệm lớp nào để chọn học sinh."
+                    self.fields['student'].queryset = StudentProfile.objects.none()
+            if len(self.fields['evaluation_type'].choices) == 1:
+                self.fields['evaluation_type'].widget = forms.HiddenInput()
 
-
-                # Lọc danh sách môn học (có thể là các môn giáo viên này dạy)
-                if hasattr(requesting_user, 'teacher_profile'):
-                    self.fields['subject'].queryset = requesting_user.teacher_profile.subjects_taught.all().order_by('name')
-                else: # Nếu không có teacher_profile, có thể lấy tất cả môn học
-                    self.fields['subject'].queryset = SchoolSubject.objects.all().order_by('name')
-                self.fields['subject'].empty_label = "--- Chọn môn học (nếu có) ---"
-
-            elif requesting_user.role.name in ['SCHOOL_ADMIN', 'ADMIN']: # Các vai trò quản lý có thể chọn bất kỳ HS nào
-                 self.fields['student'].queryset = StudentProfile.objects.select_related('user').order_by('current_class__name', 'user__last_name', 'user__first_name')
-                 self.fields['subject'].queryset = SchoolSubject.objects.all().order_by('name')
-                 self.fields['subject'].empty_label = "--- Chọn môn học (nếu có) ---"
-            else: # Các vai trò khác không được chọn
+        # Nếu là Nhận xét môn học (SUBJECT_REVIEW)
+        elif eval_type == 'SUBJECT_REVIEW':
+            self.fields['evaluation_type'].choices = [
+                ('SUBJECT_REVIEW', 'Nhận xét Môn học'),
+            ]
+            self.fields['subject'].required = True
+            if requesting_user and hasattr(requesting_user, 'teacher_profile'):
+                subjects_taught = requesting_user.teacher_profile.subjects_taught.all()
+                self.fields['subject'].queryset = subjects_taught.order_by('name')
+            if selected_class_id:
+                try:
+                    selected_class = SchoolClass.objects.get(pk=selected_class_id)
+                    self.fields['student'].queryset = StudentProfile.objects.filter(current_class=selected_class).select_related('user').order_by('user__last_name', 'user__first_name')
+                except SchoolClass.DoesNotExist:
+                    self.fields['student'].queryset = StudentProfile.objects.none()
+            else:
                 self.fields['student'].queryset = StudentProfile.objects.none()
-                self.fields['subject'].queryset = SchoolSubject.objects.none()
-        else: # Mặc định nếu không có user hoặc role
+            if len(self.fields['evaluation_type'].choices) == 1:
+                self.fields['evaluation_type'].widget = forms.HiddenInput()
+        else:
+            # Mặc định: cho phép chọn tất cả
             self.fields['student'].queryset = StudentProfile.objects.all().select_related('user').order_by('current_class__name', 'user__last_name', 'user__first_name')
             self.fields['subject'].queryset = SchoolSubject.objects.all().order_by('name')
-
         self.fields['student'].label_from_instance = lambda obj: f"{obj.user.get_full_name() or obj.user.username} (Lớp: {obj.current_class.name if obj.current_class else 'N/A'})"
-        self.fields['subject'].required = False # Môn học không bắt buộc cho tất cả các loại đánh giá
+        self.fields['subject'].empty_label = "--- Chọn môn học (nếu có) ---"
+        self.fields['subject'].required = False

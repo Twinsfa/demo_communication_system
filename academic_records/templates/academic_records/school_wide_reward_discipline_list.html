@@ -30,7 +30,6 @@
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Loại</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Nội dung/Lý do</th>
                 <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Người QĐ</th>
-                {# <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Hành động</th> #}
             </tr>
         </thead>
         <tbody>
@@ -44,9 +43,6 @@
                     </td>
                     <td style="border: 1px solid #ddd; padding: 8px;">{{ record.reason|truncatewords:20|linebreaksbr }}</td>
                     <td style="border: 1px solid #ddd; padding: 8px;">{{ record.issued_by.username|default:"-" }}</td>
-                    {# <td> #}
-                    {#    <a href="{% url 'admin:academic_records_rewardanddiscipline_change' record.pk %}">Sửa (Admin)</a> #}
-                    {# </td> #}
                 </tr>
             {% endfor %}
         </tbody>
@@ -54,6 +50,10 @@
     {# TODO: Thêm phân trang nếu cần #}
 {% else %}
     <p>Chưa có mục khen thưởng/kỷ luật nào trong toàn trường.</p>
+{% endif %}
+
+{% if user.is_staff and user.department and user.department.id == 1 %}
+    <p><a href="{% url 'academic_records:add_reward_discipline' %}" class="btn btn-primary" style="background-color: #007bff; color: white; padding: 8px 12px; text-decoration: none; border-radius: 5px;">Thêm Khen thưởng/Kỷ luật mới</a></p>
 {% endif %}
 
 {% endblock %}

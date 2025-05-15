@@ -13,6 +13,7 @@ from .models import Score, RewardAndDiscipline, Evaluation # Đảm bảo Evalua
 from accounts.models import StudentProfile, ParentProfile, User, Role
 from school_data.models import Class as SchoolClass, Subject as SchoolSubject, Department
 from .forms import ScoreContextForm, ScoreEntryForm, RewardAndDisciplineForm, EvaluationForm # Đảm bảo EvaluationForm được import
+from communications.models import Notification
 
 def convert_defaultdict_to_dict(d):
     if isinstance(d, defaultdict):
@@ -295,28 +296,18 @@ def view_reward_discipline(request):
 def manage_reward_discipline_record(request, pk=None):
     # ... (code manage_reward_discipline_record với redirect đã sửa) ...
     user = request.user
-    allowed_roles = ['TEACHER', 'SCHOOL_ADMIN', 'ADMIN']
-    user_role_name = getattr(user.role, 'name', None) if hasattr(user, 'role') else None
-
+    # Chỉ cho phép nhân viên phòng giáo vụ (department_id=1) tạo/sửa
     can_manage = False
-    # User phải là staff HOẶC là TEACHER để có thể vào view này
-    if user.is_staff and user_role_name in allowed_roles: # Admin, School Admin (staff)
+    if user.is_staff and hasattr(user, 'department') and user.department and user.department.id == 1:
         can_manage = True
-    elif user_role_name == 'TEACHER': # Giáo viên có thể không phải là staff nhưng vẫn có quyền này
-        can_manage = True 
-    
-    # Logic kiểm tra quyền chi tiết hơn cho TEACHER khi sửa
-    if pk and user_role_name == 'TEACHER':
-        record_to_check = get_object_or_404(RewardAndDiscipline, pk=pk)
-        is_homeroom_teacher_of_student = False
-        if record_to_check.student and record_to_check.student.current_class:
-            is_homeroom_teacher_of_student = record_to_check.student.current_class.homeroom_teacher == user
-        is_creator = record_to_check.issued_by == user
-        if not (is_homeroom_teacher_of_student or is_creator):
-            can_manage = False # Ghi đè nếu không đủ quyền cụ thể
-
+    # Nếu là sửa (pk) thì vẫn cho phép admin/school_admin sửa (nếu cần, có thể giữ lại logic cũ cho admin)
+    if pk and not can_manage:
+        allowed_roles = ['SCHOOL_ADMIN', 'ADMIN']
+        user_role_name = getattr(user.role, 'name', None) if hasattr(user, 'role') else None
+        if user.is_staff and user_role_name in allowed_roles:
+            can_manage = True
     if not can_manage:
-        raise PermissionDenied("Bạn không có quyền thực hiện hành động này.")
+        raise PermissionDenied("Bạn không có quyền thực hiện hành động này. Chỉ nhân viên phòng Giáo vụ mới được phép.")
 
     instance = None
     if pk:
@@ -329,12 +320,42 @@ def manage_reward_discipline_record(request, pk=None):
             if not new_record.pk: 
                 new_record.issued_by = user
             new_record.save()
+            form.save_m2m()
             messages.success(request, f"Đã {'cập nhật' if pk else 'tạo mới'} mục khen thưởng/kỷ luật thành công.")
-            
-            if user_role_name == 'TEACHER':
-                return redirect('academic_records:teacher_view_class_rewards_discipline')
-            else: 
-                return redirect('academic_records:school_wide_reward_discipline_list')
+
+            # Gửi thông báo khi tạo mới
+            if not pk:
+                student = new_record.student
+                student_user = student.user
+                student_class = student.current_class
+                # Lấy giáo viên chủ nhiệm
+                homeroom_teacher = student_class.homeroom_teacher if student_class else None
+                # Lấy phụ huynh
+                parent_profile = getattr(student, 'parent', None)
+                parent_user = parent_profile.user if parent_profile else None
+                # Nội dung thông báo
+                record_type_display = dict(RewardAndDiscipline.RECORD_TYPE_CHOICES).get(new_record.record_type, new_record.record_type)
+                class_name = student_class.name if student_class else ""
+                content = f"Nhà trường xin thông báo về quyết định {record_type_display} học sinh {student_user.get_full_name() or student_user.username} lớp {class_name}: {new_record.reason}"
+                title = f"Quyết định {record_type_display} học sinh {student_user.get_full_name() or student_user.username}"
+                notification = Notification.objects.create(
+                    title=title,
+                    content=content,
+                    sent_by=user,
+                    status='SENT',
+                    is_published=True,
+                    publish_time=timezone.now()
+                )
+                # Gửi cho học sinh
+                notification.target_users.add(student_user)
+                # Gửi cho giáo viên chủ nhiệm
+                if homeroom_teacher:
+                    notification.target_users.add(homeroom_teacher)
+                # Gửi cho phụ huynh
+                if parent_user:
+                    notification.target_users.add(parent_user)
+
+            return redirect('academic_records:school_wide_reward_discipline_list')
     else:
         form = RewardAndDisciplineForm(instance=instance, requesting_user=user)
 
@@ -416,48 +437,78 @@ def create_edit_evaluation(request, pk=None):
     allowed_roles = ['TEACHER', 'SCHOOL_ADMIN', 'ADMIN']
     user_role_name = getattr(user.role, 'name', None) if hasattr(user, 'role') else None
 
+    # Lấy loại đánh giá từ query param nếu có
+    eval_type = request.GET.get('type')
+    selected_class_id = request.GET.get('class_id')
+    taught_classes = None
+    if eval_type == 'SUBJECT_REVIEW' and hasattr(user, 'teacher_profile'):
+        # Lấy các lớp mà giáo viên này giảng dạy (có học sinh học môn mà giáo viên này dạy)
+        subjects_taught = user.teacher_profile.subjects_taught.all()
+        taught_classes = SchoolClass.objects.filter(students__enrolled_subjects__in=subjects_taught).distinct().order_by('name')
+
     can_manage = False
     if user_role_name in allowed_roles and user.is_staff:
         can_manage = True
-    
     if not can_manage:
-        # Thêm kiểm tra cụ thể cho TEACHER nếu họ không phải staff nhưng có vai trò TEACHER
         if not (user_role_name == 'TEACHER'):
-             raise PermissionDenied("Bạn không có quyền thực hiện hành động này.")
-        # Nếu là TEACHER, sẽ kiểm tra quyền sửa cụ thể hơn ở dưới nếu pk tồn tại
+            raise PermissionDenied("Bạn không có quyền thực hiện hành động này.")
 
     instance = None
     if pk:
         instance = get_object_or_404(Evaluation, pk=pk)
         if instance.evaluator != user and not (user_role_name in ['SCHOOL_ADMIN', 'ADMIN'] and user.is_staff):
-            # Giáo viên chỉ được sửa đánh giá của chính mình, trừ khi là admin/school_admin
             raise PermissionDenied("Bạn không có quyền sửa đánh giá này.")
-    
+
+    # Xử lý POST
     if request.method == 'POST':
-        form = EvaluationForm(request.POST, instance=instance, requesting_user=user)
+        form = EvaluationForm(request.POST, instance=instance, requesting_user=user, eval_type=eval_type, selected_class_id=selected_class_id)
         if form.is_valid():
             evaluation = form.save(commit=False)
-            if not evaluation.pk: 
-                evaluation.evaluator = user # Gán người đánh giá nếu tạo mới
-            evaluation.evaluation_date = timezone.now() # Luôn cập nhật/đặt ngày đánh giá là hiện tại
+            is_new = not evaluation.pk
+            if is_new:
+                evaluation.evaluator = user
+            evaluation.evaluation_date = timezone.now()
             evaluation.save()
+            form.save_m2m()
             messages.success(request, f"Đã {'cập nhật' if pk else 'tạo mới'} đánh giá/nhận xét thành công.")
-            
-            # Chuyển hướng đến đâu?
-            # Có thể là danh sách đánh giá của học sinh đó (nếu có view đó)
-            # Hoặc danh sách đánh giá giáo viên đã tạo (cần view riêng)
-            # Tạm thời về trang chủ
+            # Gửi thông báo khi tạo mới (giữ nguyên như trước)
+            if is_new:
+                student = evaluation.student
+                student_user = student.user
+                parent_profile = getattr(student, 'parent', None)
+                parent_user = parent_profile.user if parent_profile else None
+                eval_type_display = evaluation.get_evaluation_type_display()
+                subject_name = evaluation.subject.name if evaluation.subject else ""
+                if evaluation.evaluation_type == 'SUBJECT_REVIEW':
+                    content = f"Nhà trường xin thông báo về nhận xét môn học {subject_name} cho học sinh {student_user.get_full_name() or student_user.username}: {evaluation.content}"
+                    title = f"Nhận xét môn {subject_name} cho học sinh {student_user.get_full_name() or student_user.username}"
+                else:
+                    content = f"Nhà trường xin thông báo về đánh giá {eval_type_display} của học sinh {student_user.get_full_name() or student_user.username}: {evaluation.content}"
+                    title = f"Đánh giá {eval_type_display} cho học sinh {student_user.get_full_name() or student_user.username}"
+                notification = Notification.objects.create(
+                    title=title,
+                    content=content,
+                    sent_by=user,
+                    status='SENT',
+                    is_published=True,
+                    publish_time=timezone.now()
+                )
+                notification.target_users.add(student_user)
+                if parent_user:
+                    notification.target_users.add(parent_user)
             if evaluation.student:
-                # return redirect('some_url_to_view_student_evaluations', student_pk=evaluation.student.pk)
-                pass # Placeholder
-            return redirect('homepage') 
+                pass
+            return redirect('homepage')
     else:
-        form = EvaluationForm(instance=instance, requesting_user=user)
+        form = EvaluationForm(instance=instance, requesting_user=user, eval_type=eval_type, selected_class_id=selected_class_id)
 
     context = {
         'form': form,
         'page_title': f"{'Chỉnh sửa' if pk else 'Tạo mới'} Đánh giá/Nhận xét",
-        'evaluation_instance': instance
+        'evaluation_instance': instance,
+        'eval_type': eval_type,
+        'taught_classes': taught_classes,
+        'selected_class_id': selected_class_id,
     }
     return render(request, 'academic_records/create_edit_evaluation.html', context)
 
@@ -466,9 +517,10 @@ def view_evaluations(request):
     user = request.user
     context = {
         'page_title': 'Đánh giá và Nhận xét',
-        'evaluations_by_student': defaultdict(list), # {student_display_name: [evaluation_obj1, evaluation_obj2]}
+        'evaluations_conduct_by_student': defaultdict(list),
+        'evaluations_subject_review_by_student': defaultdict(list),
         'is_parent': False,
-        'students_to_view': [], # Danh sách StudentProfile instances
+        'students_to_view': [],
         'error_message': None
     }
 
@@ -476,64 +528,49 @@ def view_evaluations(request):
 
     if user_role_name == 'STUDENT':
         try:
-            # Giả định user có OneToOneField 'student_profile' đến StudentProfile
             student_profile = StudentProfile.objects.get(user=user) 
             context['students_to_view'] = [student_profile]
             context['page_title'] = f'Đánh giá/Nhận xét cho {student_profile.user.get_full_name() or student_profile.user.username}'
         except StudentProfile.DoesNotExist:
             context['error_message'] = "Không tìm thấy hồ sơ học sinh của bạn."
-            # messages.warning(request, "Không tìm thấy hồ sơ học sinh của bạn.")
-
     elif user_role_name == 'PARENT':
         context['is_parent'] = True
         try:
             parent_profile = ParentProfile.objects.get(user=user)
-            # Giả sử StudentProfile có ForeignKey 'parent' trỏ đến ParentProfile
-            # và ParentProfile có related_name 'children' từ StudentProfile.parent
             children_profiles_qs = parent_profile.children.all().select_related('user')
-            
             if not children_profiles_qs.exists():
                 context['error_message'] = "Bạn chưa có thông tin học sinh nào được liên kết."
-                # messages.info(request, "Bạn chưa có thông tin học sinh nào được liên kết.")
             else:
                 context['students_to_view'] = list(children_profiles_qs)
                 context['page_title'] = 'Đánh giá/Nhận xét của các con'
-        
         except ParentProfile.DoesNotExist:
             context['error_message'] = "Không tìm thấy hồ sơ phụ huynh của bạn."
-            # messages.warning(request, "Không tìm thấy hồ sơ phụ huynh của bạn.")
         except Exception as e: 
-            # logger.error(f"Lỗi khi lấy thông tin phụ huynh cho user {user.id}: {e}")
             context['error_message'] = "Đã có lỗi xảy ra khi truy xuất thông tin phụ huynh."
-            # messages.error(request, "Đã có lỗi xảy ra khi truy xuất thông tin phụ huynh.")
     else:
-        # Nếu không phải STUDENT hoặc PARENT
         context['error_message'] = "Chức năng này chỉ dành cho Học sinh và Phụ huynh."
-        # Hoặc bạn có thể raise PermissionDenied("Bạn không có quyền xem trang này.")
 
     if context['students_to_view']:
         student_pks = [sp.pk for sp in context['students_to_view']]
         evaluations_qs = Evaluation.objects.filter(
-            student_id__in=student_pks # Lọc theo ID của StudentProfile
+            student_id__in=student_pks
         ).select_related('student__user', 'evaluator', 'subject').order_by('student__user__username', '-evaluation_date')
-        
         for evaluation_item in evaluations_qs:
             student_display_name = evaluation_item.student.user.get_full_name() or evaluation_item.student.user.username
-            context['evaluations_by_student'][student_display_name].append(evaluation_item)
-            
-    # Chuyển defaultdict thành dict thường để tránh các vấn đề tiềm ẩn trong template
-    context['evaluations_by_student'] = dict(context['evaluations_by_student']) 
-    
+            if evaluation_item.evaluation_type in ['CONDUCT', 'TERM_REVIEW']:
+                context['evaluations_conduct_by_student'][student_display_name].append(evaluation_item)
+            elif evaluation_item.evaluation_type == 'SUBJECT_REVIEW':
+                context['evaluations_subject_review_by_student'][student_display_name].append(evaluation_item)
+    # Chuyển defaultdict thành dict thường
+    context['evaluations_conduct_by_student'] = dict(context['evaluations_conduct_by_student'])
+    context['evaluations_subject_review_by_student'] = dict(context['evaluations_subject_review_by_student'])
     return render(request, 'academic_records/view_evaluations.html', context)
 
 @login_required
 def teacher_my_evaluations(request):
     user = request.user
     # Kiểm tra quyền: Chỉ Giáo viên
-    # Đảm bảo user.role tồn tại và user.role.name được gán đúng
     if not (hasattr(user, 'role') and user.role and user.role.name == 'TEACHER'):
-        # messages.error(request, "Chức năng này chỉ dành cho Giáo viên.") # Tùy chọn: thông báo lỗi
-        # return redirect('homepage') # Hoặc trang lỗi quyền
         raise PermissionDenied("Chức năng này chỉ dành cho Giáo viên.")
 
     # Lấy tất cả các đánh giá mà giáo viên này đã tạo
@@ -541,9 +578,19 @@ def teacher_my_evaluations(request):
         evaluator=user
     ).select_related('student__user', 'subject').order_by('-evaluation_date', 'student__user__last_name')
 
+    # Phân loại
+    evaluations_conduct = [e for e in my_evaluations if e.evaluation_type in ['CONDUCT', 'TERM_REVIEW']]
+    evaluations_subject_review = [e for e in my_evaluations if e.evaluation_type == 'SUBJECT_REVIEW']
+
+    # Kiểm tra giáo viên có chủ nhiệm lớp nào không
+    homeroom_classes = SchoolClass.objects.filter(homeroom_teacher=user)
+    is_homeroom_teacher = homeroom_classes.exists()
+
     context = {
-        'evaluations': my_evaluations, # Truyền danh sách đánh giá vào template
-        'page_title': 'Các Đánh giá/Nhận xét bạn đã tạo',
+        'evaluations_conduct': evaluations_conduct,
+        'evaluations_subject_review': evaluations_subject_review,
+        'is_homeroom_teacher': is_homeroom_teacher,
+        'page_title': 'Đánh giá học sinh & Nhận xét môn học',
     }
     return render(request, 'academic_records/teacher_my_evaluations.html', context)
 
@@ -677,3 +724,63 @@ def manage_scores_dashboard(request):
             del final_taught_classes_data[class_obj]
     context['taught_classes_data'] = final_taught_classes_data
     return render(request, 'academic_records/teacher_view_class_scores.html', context)
+
+@login_required
+def school_wide_evaluations(request):
+    user = request.user
+    if not (user.is_staff and hasattr(user, 'department') and user.department):
+        raise PermissionDenied("Bạn không có quyền truy cập trang này.")
+    evaluations_conduct = Evaluation.objects.filter(
+        evaluation_type__in=['CONDUCT', 'TERM_REVIEW']
+    ).select_related('student__user', 'student__current_class', 'evaluator').order_by('-evaluation_date')
+    evaluations_subject_review = Evaluation.objects.filter(
+        evaluation_type='SUBJECT_REVIEW'
+    ).select_related('student__user', 'student__current_class', 'subject', 'evaluator').order_by('-evaluation_date')
+    context = {
+        'evaluations_conduct': evaluations_conduct,
+        'evaluations_subject_review': evaluations_subject_review,
+        'page_title': 'Tổng hợp Đánh giá & Nhận xét Toàn trường',
+    }
+    return render(request, 'academic_records/school_wide_evaluations.html', context)
+
+@login_required
+def school_wide_scores(request):
+    user = request.user
+    if not (user.is_staff and hasattr(user, 'department') and user.department):
+        raise PermissionDenied("Bạn không có quyền truy cập trang này.")
+    all_classes = SchoolClass.objects.all().order_by('name')
+    selected_class_id = request.GET.get('class_id')
+    selected_class = None
+    students_in_class = []
+    scores_by_subject = {}
+    if selected_class_id:
+        try:
+            selected_class = SchoolClass.objects.get(pk=selected_class_id)
+            students_in_class = StudentProfile.objects.filter(current_class=selected_class).select_related('user').order_by('user__last_name', 'user__first_name')
+            subjects = SchoolSubject.objects.all().order_by('name').prefetch_related('teachers__user')
+            for subject in subjects:
+                subject_scores = []
+                # Lấy giáo viên thực sự dạy môn này cho lớp này
+                teacher_names = []
+                for teacher_profile in subject.teachers.all():
+                    if hasattr(teacher_profile, 'subjects_taught') and subject in teacher_profile.subjects_taught.all():
+                        teacher_names.append(teacher_profile.user.get_full_name() or teacher_profile.user.username)
+                teacher_names_str = ", ".join(sorted(list(set(teacher_names)))) or "N/A"
+                subject.teacher_names = teacher_names_str
+                for student in students_in_class:
+                    scores = Score.objects.filter(student=student, subject=subject).order_by('exam_date', 'exam_type')
+                    subject_scores.append({
+                        'student': student,
+                        'scores': list(scores)
+                    })
+                scores_by_subject[subject] = subject_scores
+        except SchoolClass.DoesNotExist:
+            selected_class = None
+    context = {
+        'page_title': 'Tổng hợp điểm theo lớp',
+        'all_classes': all_classes,
+        'selected_class': selected_class,
+        'scores_by_subject': scores_by_subject,
+        'students_in_class': students_in_class,
+    }
+    return render(request, 'academic_records/school_wide_scores.html', context)

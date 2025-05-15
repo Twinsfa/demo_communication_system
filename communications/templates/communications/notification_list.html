@@ -4,20 +4,77 @@
 
 {% block content %}
 <h2>Danh sách Thông báo</h2>
+
+{% if user.is_authenticated %}
+    {% if user.role and user.role.name == 'TEACHER' %}
+        <div style="margin-bottom: 20px;">
+            <a href="{% url 'communications:create_notification' %}" class="btn btn-success" style="background-color: #28a745; color: white; padding: 8px 16px; border-radius: 5px; text-decoration: none;">+ Tạo Thông báo</a>
+        </div>
+    {% elif user.is_staff and user.department %}
+        <div style="margin-bottom: 20px;">
+            <a href="{% url 'communications:create_notification' %}" class="btn btn-success" style="background-color: #28a745; color: white; padding: 8px 16px; border-radius: 5px; text-decoration: none;">+ Tạo Thông báo</a>
+        </div>
+    {% endif %}
+{% endif %}
+
 {% if user.is_authenticated %}
     {% if notifications %}
-        <ul>
+        <ul style="list-style: none; padding: 0;">
             {% for notification in notifications %}
-                <li>
-                    <h3>{{ notification.title }}</h3>
-                    <p><small>Gửi bởi: {{ notification.sent_by.username|default:"Hệ thống" }} lúc {{ notification.created_time|date:"d/m/Y H:i" }}</small></p>
-                    <div>{{ notification.content|safe|linebreaks }}</div>
-                    <hr>
+                <li style="border: 1px solid #ddd; border-radius: 6px; margin-bottom: 18px; padding: 16px; background: #fff; position: relative;">
+                    <div style="display: flex; align-items: center;">
+                        <h3 style="margin: 0; flex: 1;">{{ notification.title }}</h3>
+                        {% if notification.id not in read_notification_ids %}
+                            <span title="Chưa đọc" style="display: inline-block; width: 14px; height: 14px; background: #007bff; border-radius: 50%; margin-left: 10px; border: 2px solid #fff;"></span>
+                        {% endif %}
+                    </div>
+                    <div style="color: #555; font-size: 0.95em; margin-top: 4px;">
+                        <span>Gửi bởi: <b>{{ notification.sent_by.get_full_name|default:notification.sent_by.username|default:"Hệ thống" }}</b></span>
+                        &nbsp;|&nbsp;
+                        <span>Ngày gửi: {{ notification.publish_time|default:notification.created_time|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <div style="margin-top: 10px;">{{ notification.content|safe|linebreaks }}</div>
                 </li>
             {% endfor %}
         </ul>
     {% else %}
         <p>Không có thông báo nào.</p>
+    {% endif %}
+
+    {% if notifications_created_by_me %}
+        <hr style="margin: 30px 0;">
+        <h3 style="color: #0056b3;">Thông báo bạn đã tạo</h3>
+        {% if notifications_created_by_me %}
+            <ul style="list-style: none; padding: 0;">
+                {% for notification in notifications_created_by_me %}
+                    <li style="border: 1px solid #eee; border-radius: 6px; margin-bottom: 16px; padding: 14px; background: #f9f9f9;">
+                        <div style="display: flex; align-items: center;">
+                            <h4 style="margin: 0; flex: 1;">{{ notification.title }}</h4>
+                        </div>
+                        <div style="color: #555; font-size: 0.95em; margin-top: 4px;">
+                            <span>Ngày gửi: {{ notification.publish_time|default:notification.created_time|date:"d/m/Y H:i" }}</span>
+                        </div>
+                        <div style="margin-top: 8px;">{{ notification.content|safe|linebreaks }}</div>
+                        <div style="margin-top: 8px; color: #888; font-size: 0.92em;">
+                            <b>Đối tượng nhận:</b>
+                            {% if notification.target_roles.all %}
+                                {% for r in notification.target_roles.all %}{{ r.get_name_display }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                            {% endif %}
+                            {% if notification.target_classes.all %}
+                                {% if notification.target_roles.all %} | {% endif %}
+                                {% for c in notification.target_classes.all %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                            {% endif %}
+                            {% if notification.target_users.all %}
+                                {% if notification.target_roles.all or notification.target_classes.all %} | {% endif %}
+                                {% for u in notification.target_users.all %}{{ u.get_full_name|default:u.username }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                            {% endif %}
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>Bạn chưa tạo công báo nào.</p>
+        {% endif %}
     {% endif %}
 {% else %}
     <p>Vui lòng <a href="{% url 'login' %}">đăng nhập</a> để xem thông báo.</p>
