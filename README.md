@@ -20,8 +20,8 @@ This project is a comprehensive School Communication and Information System desi
 ## Setup Instructions
 1. Clone the repository:
    ```bash
-   git clone <your-repo-url>
-   cd <project-folder>
+   git clone https://github.com/duy3twave/demo_communication_system.git
+   cd demo_communication_system
    ```
 2. Create and activate a virtual environment:
    ```bash
